@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لوحة تحكم مجمع البسام</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 15px; padding-bottom: 50px; }
+        header { text-align: center; margin-bottom: 20px; }
+        header h1 { font-size: 20px; color: var(--primary); margin-bottom: 5px; }
+        header p { font-size: 13px; color: #6b7280; }
+        
+        .card { background: var(--card-bg); border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card h2 { font-size: 16px; margin-bottom: 12px; color: var(--text); }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; margin-bottom: 5px; font-weight: 600; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fafafa; }
+        
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; text-align: center; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-sm { padding: 6px 10px; font-size: 12px; width: auto; border-radius: 6px; }
+
+        .filter-container { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 15px; }
+        .filter-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: white; font-size: 12px; white-space: nowrap; cursor: pointer; }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .product-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .product-item:last-child { border-bottom: none; }
+        .product-info { display: flex; align-items: center; gap: 10px; }
+        .product-thumb { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; background: #eee; }
+        .product-details h4 { font-size: 14px; margin-bottom: 2px; }
+        .product-details p { font-size: 12px; color: #6b7280; }
+        
+        .actions { display: flex; gap: 5px; align-items: center; }
+        .sync-section { margin-top: 25px; background: #eff6ff; border: 1px solid #bfdbfe; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>مجمع البسام - لوحة التحكم</h1>
+        <p>إدارة المنتجات، التوفر، والصور من الآيفون</p>
+    </header>
+
+    <div class="card">
+        <h2>إضافة منتج جديد</h2>
+        <div class="form-group">
+            <label>اسم المنتج</label>
+            <input type="text" id="pName" class="form-control" placeholder="مثال: شاشة ذكية">
+        </div>
+        <div class="form-group">
+            <label>السعر (د.ع)</label>
+            <input type="number" id="pPrice" class="form-control" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>القسم</label>
+            <select id="pCategory" class="form-control">
+                <option value="إلكترونيات">إلكترونيات</option>
+                <option value="منزلية">منزلية</option>
+                <option value="إكسسوارات">إكسسوارات</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>صورة المنتج من الاستوديو</label>
+            <input type="file" id="pImageFile" class="form-control" accept="image/*">
+        </div>
+        <button class="btn btn-primary" onclick="addProduct()">إضافة المنتج للقائمة</button>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 10px;">قائمة المنتجات والأقسام</h2>
+        <div class="filter-container" id="filterTabs">
+            <button class="filter-btn active" onclick="filterCategory('الكل', this)">الكل</button>
+            <button class="filter-btn" onclick="filterCategory('إلكترونيات', this)">إلكترونيات</button>
+            <button class="filter-btn" onclick="filterCategory('منزلية', this)">منزلية</button>
+            <button class="filter-btn" onclick="filterCategory('إكسسوارات', this)">إكسسوارات</button>
+        </div>
+        <div id="productList"></div>
+    </div>
+
+    <div class="card sync-section">
+        <h2>مزامنة الموقع</h2>
+        <p style="font-size: 12px; color: #4b5563; margin-bottom: 10px;">اضغط هنا لحفظ كافة التعديلات وتحديث موقعك الرئيسي.</p>
+        <button class="btn btn-success" onclick="saveChanges()">حفظ التغييرات</button>
+    </div>
+
+    <script>
+        let products = JSON.parse(localStorage.getItem('albassam_products')) || [
+            { id: 1, name: "شاشة ذكية 55 بوصة", price: 450000, category: "إلكترونيات", available: true, image: "https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=300&q=80" },
+            { id: 2, name: "قلاية هوائية ذكية", price: 120000, category: "منزلية", available: true, image: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=300&q=80" },
+            { id: 3, name: "سماعات رأس لاسلكية", price: 95000, category: "إكسسوارات", available: true, image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80" }
+        ];
+
+        let currentFilter = 'الكل';
+
+        function renderProducts() {
+            const list = document.getElementById('productList');
+            list.innerHTML = '';
+            const filtered = currentFilter === 'الكل' ? products : products.filter(p => p.category === currentFilter);
+            
+            if(filtered.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #9ca3af; font-size: 13px; padding: 20px;">لا توجد منتجات في هذا القسم</p>';
+                return;
+            }
+
+            filtered.forEach(p => {
+                const realIndex = products.findIndex(item => item.id === p.id);
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'product-item';
+                itemDiv.innerHTML = `
+                    <div class="product-info">
+                        <img src="${p.image}" class="product-thumb" alt="">
+                        <div class="product-details">
+                            <h4>${p.name}</h4>
+                            <p>${p.price.toLocaleString()} د.ع | <strong>${p.category}</strong></p>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-sm ${p.available ? 'btn-success' : 'btn-danger'}" onclick="toggleStatus(${realIndex})">
+                            ${p.available ? 'متوفر' : 'غير متوفر'}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteProduct(${realIndex})">حذف</button>
+                    </div>
+                `;
+                list.appendChild(itemDiv);
+            });
+        }
+
+        function filterCategory(cat, btn) {
+            currentFilter = cat;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderProducts();
+        }
+
+        function addProduct() {
+            const name = document.getElementById('pName').value;
+            const price = parseFloat(document.getElementById('pPrice').value);
+            const category = document.getElementById('pCategory').value;
+            const fileInput = document.getElementById('pImageFile');
+
+            if(!name || isNaN(price)) {
+                alert('يرجى إدخال اسم المنتج والسعر بشكل صحيح');
+                return;
+            }
+
+            if(fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    saveNewProduct(name, price, category, e.target.result);
+                }
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                saveNewProduct(name, price, category, 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=300&q=80');
+            }
+        }
+
+        function saveNewProduct(name, price, category, image) {
+            products.push({ id: Date.now(), name, price, category, available: true, image });
+            localStorage.setItem('albassam_products', JSON.stringify(products));
+            document.getElementById('pName').value = '';
+            document.getElementById('pPrice').value = '';
+            document.getElementById('pImageFile').value = '';
+            renderProducts();
+            alert('تمت إضافة المنتج بنجاح!');
+        }
+
+        function toggleStatus(index) {
+            products[index].available = !products[index].available;
+            localStorage.setItem('albassam_products', JSON.stringify(products));
+            renderProducts();
+        }
+
+        function deleteProduct(index) {
+            if(confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+                products.splice(index, 1);
+                localStorage.setItem('albassam_products', JSON.stringify(products));
+                renderProducts();
+            }
+        }
+
+        function saveChanges() {
+            localStorage.setItem('albassam_products', JSON.stringify(products));
+            alert('تم حفظ التغييرات بنجاح!');
+        }
+
+        renderProducts();
+    </script>
+</body>
+</html>
