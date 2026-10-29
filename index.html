@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مجمع البسام - المتجر الإلكتروني</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f3f4f6; --text: #1f2937; --success: #16a34a; --danger: #dc2626; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 15px; direction: rtl; text-align: right; padding-bottom: 80px; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        header h1 { color: var(--primary); font-size: 20px; }
+        
+        .cart-btn { background: var(--primary); color: white; border: none; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+
+        .filter-container { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 15px; }
+        .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid #e5e7eb; background: white; font-size: 12px; cursor: pointer; white-space: nowrap; font-weight: 600; }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .product-card { background: white; border-radius: 10px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+        .product-card img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; background: #eee; margin-bottom: 8px; }
+        .product-card h3 { font-size: 14px; margin-bottom: 4px; }
+        .product-card p { font-size: 13px; color: #4b5563; font-weight: bold; margin-bottom: 8px; }
+        
+        .badge { display: inline-block; padding: 3px 8px; font-size: 10px; border-radius: 4px; margin-bottom: 8px; font-weight: 600; }
+        .badge-available { background: #dcfce7; color: #16a34a; }
+        .badge-unavailable { background: #fee2e2; color: #dc2626; }
+
+        .btn-add-cart { background: var(--primary); color: white; border: none; padding: 6px; border-radius: 6px; font-size: 12px; font-weight: bold; width: 100%; cursor: pointer; }
+        .btn-add-cart:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        /* نافذة سلة المشتريات الجانبية أو المنبثقة */
+        .cart-modal { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 20px; box-shadow: 0 -5px 15px rgba(0,0,0,0.15); transform: translateY(100%); transition: 0.3s ease; z-index: 1000; max-height: 70vh; overflow-y: auto; }
+        .cart-modal.open { transform: translateY(0); }
+        .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .close-cart { background: none; border: none; font-size: 18px; cursor: pointer; color: #6b7280; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px; font-size: 13px; }
+        .checkout-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-size: 15px; font-weight: bold; margin-top: 15px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>مجمع البسام</h1>
+        <button class="cart-btn" onclick="toggleCart()">🛒 السلة (<span id="cartCount">0</span>)</button>
+    </header>
+
+    <div class="filter-container" id="filterTabs">
+        <button class="filter-btn active" onclick="filterCategory('الكل', this)">الكل</button>
+        <button class="filter-btn" onclick="filterCategory('إلكترونيات', this)">إلكترونيات</button>
+        <button class="filter-btn" onclick="filterCategory('منزلية', this)">منزلية</button>
+        <button class="filter-btn" onclick="filterCategory('إكسسوارات', this)">إكسسوارات</button>
+    </div>
+
+    <div class="products-grid" id="storeProductList"></div>
+
+    <!-- نافذة سلة المشتريات -->
+    <div class="cart-modal" id="cartModal">
+        <div class="cart-header">
+            <h3>سلة المشتريات</h3>
+            <button class="close-cart" onclick="toggleCart()">✕</button>
+        </div>
+        <div id="cartItemsList">
+            <p style="text-align: center; color: #9ca3af; font-size: 13px;">السلة فارغة حالياً</p>
+        </div>
+        <div style="margin-top: 15px; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between;">
+            <span>المجموع الكلي:</span>
+            <span id="cartTotal">0 د.ع</span>
+        </div>
+        <button class="checkout-btn" onclick="checkoutWhatsApp()">إرسال الطلب عبر واتساب</button>
+    </div>
+
+    <script>
+        let currentFilter = 'الكل';
+        let cart = [];
+
+        function renderStoreProducts() {
+            let products = JSON.parse(localStorage.getItem('albassam_products')) || [
+                { id: 1, name: "شاشة ذكية 55 بوصة", price: 450000, category: "إلكترونيات", available: true, image: "https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=300&q=80" },
+                { id: 2, name: "قلاية هوائية ذكية", price: 120000, category: "منزلية", available: true, image: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=300&q=80" },
+                { id: 3, name: "سماعات رأس لاسلكية", price: 95000, category: "إكسسوارات", available: true, image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80" }
+            ];
+
+            const grid = document.getElementById('storeProductList');
+            grid.innerHTML = '';
+            
+            const filtered = currentFilter === 'الكل' ? products : products.filter(p => p.category === currentFilter);
+
+            if(filtered.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #9ca3af; padding: 30px;">لا توجد منتجات حالياً</p>';
+                return;
+            }
+
+            filtered.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.innerHTML = `
+                    <div>
+                        <img src="${p.image}" alt="${p.name}">
+                        <h3>${p.name}</h3>
+                        <p>${p.price.toLocaleString()} د.ع</p>
+                        <span class="badge ${p.available ? 'badge-available' : 'badge-unavailable'}">
+                            ${p.available ? 'متوفر' : 'غير متوفر'}
+                        </span>
+                    </div>
+                    <button class="btn-add-cart" ${!p.available ? 'disabled' : ''} onclick="addToCart('${p.name}', ${p.price})">
+                        ${p.available ? 'إضافة للسلة' : 'نفذت الكمية'}
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterCategory(cat, btn) {
+            currentFilter = cat;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderStoreProducts();
+        }
+
+        function addToCart(name, price) {
+            cart.push({ name, price });
+            document.getElementById('cartCount').innerText = cart.length;
+            updateCartUI();
+            alert('تمت إضافة المنتج إلى السلة!');
+        }
+
+        function toggleCart() {
+            const modal = document.getElementById('cartModal');
+            modal.classList.toggle('open');
+        }
+
+        function updateCartUI() {
+            const list = document.getElementById('cartItemsList');
+            const totalEl = document.getElementById('cartTotal');
+            list.innerHTML = '';
+            
+            if(cart.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #9ca3af; font-size: 13px;">السلة فارغة حالياً</p>';
+                totalEl.innerText = '0 د.ع';
+                return;
+            }
+
+            let total = 0;
+            cart.forEach((item, index) => {
+                total += item.price;
+                const div = document.createElement('div');
+                div.className = 'cart-item';
+                div.innerHTML = `
+                    <span>${item.name} - ${item.price.toLocaleString()} د.ع</span>
+                    <button onclick="removeFromCart(${index})" style="background:none; border:none; color:red; cursor:pointer;">حذف</button>
+                `;
+                list.appendChild(div);
+            });
+            totalEl.innerText = total.toLocaleString() + ' د.ع';
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            document.getElementById('cartCount').innerText = cart.length;
+            updateCartUI();
+        }
+
+        function checkoutWhatsApp() {
+            if(cart.length === 0) {
+                alert('السلة فارغة!');
+                return;
+            }
+            let msg = "مرحباً، أريـد طلب المنتجات التالية من مجمع البسام:\n";
+            let total = 0;
+            cart.forEach(item => {
+                msg += `- ${item.name} (${item.price.toLocaleString()} د.ع)\n`;
+                total += item.price;
+            });
+            msg += `\nالمجموع الكلي: ${total.toLocaleString()} د.ع`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        renderStoreProducts();
+    </script>
+</body>
+</html>
