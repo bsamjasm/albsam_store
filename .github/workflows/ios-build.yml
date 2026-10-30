@@ -18,15 +18,12 @@ jobs:
 
       - name: Build Xcode Project
         run: |
-          PROJ_PATH=$(find . -name "*.xcworkspace" -maxdepth 2 | head -n 1)
-          if [ -z "$PROJ_PATH" ]; then
-            PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
-            PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
-            xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release archive -archivePath build/App.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-          else
-            PROJ_NAME=$(basename "$PROJ_PATH" .xcworkspace)
-            xcodebuild -workspace "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release archive -archivePath build/App.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-          fi
+          WORKSPACE_PATH=$(find . -name "*.xcworkspace" -maxdepth 2 | head -n 1)
+          WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" .xcworkspace)
+          echo "Building workspace: $WORKSPACE_PATH with scheme: $WORKSPACE_NAME"
+          
+          xcodebuild -workspace "$WORKSPACE_PATH" -scheme "$WORKSPACE_NAME" -sdk iphoneos -configuration Release archive -archivePath build/App.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          
           mkdir -p build/Payload
           mv build/App.xcarchive/Products/Applications/*.app build/Payload/
           cd build && zip -r app.ipa Payload
