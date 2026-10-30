@@ -10,17 +10,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Clean Pods and Build Directly
+      - name: Purge Pods Configurations and Build
         run: |
           cd src
-          # إزالة ملفات البودز المعقدة لكي لا تسبب أخطاء ربط
-          rm -rf Pods Podfile.lock *.xcworkspace
+          # إزالة أي آثار لملفات البودز أو إعداداتها من المشروع
+          rm -rf Pods Podfile Podfile.lock *.xcworkspace
+          
+          # تنظيف إعدادات الربط الإجباري من ملف المشروع الداخلي
+          find . -name "project.pbxproj" -exec sed -i '' '/Pods/d' {} +
           cd ..
 
           PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
           PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
 
-          echo "Building pure project: $PROJ_PATH"
+          echo "Building clean project: $PROJ_PATH"
           xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" | head -n 1)
