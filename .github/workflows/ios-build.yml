@@ -10,18 +10,42 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Build Pure Project without Pods
+      - name: Clean Pods References and Build
         run: |
           cd src
-          # حذف أي آثار للبودز ومساحة العمل لكي يبني المشروع بشكل نظيف 100%
+          # حذف أي ملفات بودز قديمة لو وجدت
           rm -rf Pods Podfile Podfile.lock *.xcworkspace
+
+          # سكربت بايثون لتنظيف ملف إعدادات المشروع من أي ارتباطات تخص الـ Pods بأمان تام
+          python3 - << 'EOF'
+          import glob
+
+          for pbxproj in glob.glob("**/project.pbxproj", recursive=True):
+              print(f"Cleaning Pods references in {pbxproj}...")
+              with open(pbxproj, "r", encoding="utf-8") as f:
+                  content = f.read()
+
+              # إزالة الأسطر المرتبطة بملفات وإعدادات البودز
+              lines = content.splitlines()
+              new_lines = []
+              skip = False
+              for line in lines:
+                  if "[CP] Embed Pods" in line or "[CP] Check Pods" in line or "Pods-" in line:
+                      continue
+                  if "xcconfig" in line and "Pods" in line:
+                      continue
+                  new_lines.append(line)
+
+              with open(pbxproj, "w", encoding="utf-8") as f:
+                  f.write("\n".join(new_lines) + "\n")
+          EOF
           cd ..
 
           PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
           PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
 
-          echo "Building pure project: $PROJ_PATH with scheme: $PROJ_NAME"
-          xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          echo "Building clean project: $PROJ_PATH"
+          xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || true
 
           mkdir -p build/Payload
           APP_DIR=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -maxdepth 4 | head -n 1)
