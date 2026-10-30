@@ -10,22 +10,24 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Build Clean Xcode Project
+      - name: Build and Package App
         run: |
           PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
           PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
 
-          echo "Building project safely: $PROJ_PATH"
           xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || true
+
+          # إنشاء مجلد البيلد ونسخ التطبيق الناتج أياً كان مساره
+          mkdir -p build/Payload
+          APP_DIR=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -maxdepth 4 | head -n 1)
           
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" | head -n 1)
-          if [ -d "$APP_PATH" ]; then
-            mkdir -p build/Payload
-            cp -r "$APP_PATH" build/Payload/
+          if [ -d "$APP_DIR" ]; then
+            cp -r "$APP_DIR" build/Payload/
             cd build && zip -r app.ipa Payload
+            echo "IPA created successfully!"
           else
-            echo "App build output not found, searching alternative path..."
-            find . -name "*.app"
+            echo "Error: .app file not found!"
+            exit 1
           fi
 
       - name: Upload IPA Artifact
