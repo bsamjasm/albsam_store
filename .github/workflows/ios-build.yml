@@ -11,7 +11,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Compile Direct IPA from Scratch
+      - name: Compile Direct IPA with Optimized Viewport
         run: |
           mkdir -p build/Payload/AlbsamApp.app
 
@@ -35,21 +35,35 @@ jobs:
               override func viewDidLoad() {
                   super.viewDidLoad()
                   view.backgroundColor = .black
+                  
+                  let preferences = WKPreferences()
+                  preferences.javaScriptEnabled = true
+                  
                   let config = WKWebViewConfiguration()
+                  config.preferences = preferences
                   config.allowsInlineMediaPlayback = true
+                  
+                  // حقن كود لضبط الـ Viewport وجعل العناصر تتناسب مع شاشة الآيفون تلقائياً بدون انضغاط
+                  let jscript = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=yes'; document.getElementsByTagName('head')[0].appendChild(meta);"
+                  let script = WKUserScript(source: jscript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+                  config.userContentController.addUserScript(script)
+                  
                   webView = WKWebView(frame: .zero, configuration: config)
                   webView.navigationDelegate = self
                   webView.uiDelegate = self
                   webView.translatesAutoresizingMaskIntoConstraints = false
                   view.addSubview(webView)
+                  
                   NSLayoutConstraint.activate([
                       webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
                       webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
                       webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
                   ])
+                  
                   if let url = URL(string: "https://bsamjasm.github.io/albsam_store/admin.html") {
-                      webView.load(URLRequest(url: url))
+                      let request = URLRequest(url: url)
+                      webView.load(request)
                   }
               }
 
@@ -149,4 +163,3 @@ jobs:
         with:
           name: app-ipa
           path: build/app.ipa
-# END OF FILE
