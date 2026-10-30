@@ -10,22 +10,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Pods and Build Cleanly
+      - name: Build Pure Project without Pods
         run: |
           cd src
-          # تثبيت الحزم بشكل نظيف وطبيعي لتوليد ملفات الإعدادات تلقائياً دون إتلاف المشروع
-          pod install
+          # حذف أي آثار للبودز ومساحة العمل لكي يبني المشروع بشكل نظيف 100%
+          rm -rf Pods Podfile Podfile.lock *.xcworkspace
           cd ..
 
-          WORKSPACE_PATH=$(find . -name "*.xcworkspace" -maxdepth 2 | head -n 1)
-          if [ -z "$WORKSPACE_PATH" ]; then
-            PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
-            PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
-            xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-          else
-            WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" .xcworkspace)
-            xcodebuild -workspace "$WORKSPACE_PATH" -scheme "$WORKSPACE_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-          fi
+          PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
+          PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
+
+          echo "Building pure project: $PROJ_PATH with scheme: $PROJ_NAME"
+          xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
           mkdir -p build/Payload
           APP_DIR=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -maxdepth 4 | head -n 1)
