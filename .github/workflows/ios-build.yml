@@ -12,5 +12,4 @@ jobs:
 
       - name: Build Xcode Project
         run: |
-          cd src
-          xcodebuild -project "*.xcodeproj" -scheme "*" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || true
+          xcodebuild -project "src/*.xcodeproj" -scheme "*" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || true
