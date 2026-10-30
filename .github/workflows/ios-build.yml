@@ -10,17 +10,36 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Build Pure Project
+      - name: Strip Pods and Build Project
         run: |
           cd src
-          # إزالة ملفات البودز ومساحة العمل نهائياً لكي لا يحدث أي خطأ ربط
+          # إزالة مجلدات البودز بالكامل
           rm -rf Pods Podfile Podfile.lock *.xcworkspace
+
+          # استخدام بايثون لحذف إعدادات ومراحل البودز من ملف المشروع لتجنب أي خطأ
+          python3 - << 'EOF'
+          import glob
+          for pbxproj in glob.glob("**/project.pbxproj", recursive=True):
+              print(f"Cleaning {pbxproj}...")
+              with open(pbxproj, "r", encoding="utf-8") as f:
+                  lines = f.readlines()
+              
+              new_lines = []
+              for line in lines:
+                  # تخطي أي سطر يشير إلى ملفات الـ Pods أو إعداداتها
+                  if "Pods-" in line or "[CP] Embed Pods" in line or "xcconfig" in line or "input-files" in line or "output-files" in line:
+                      continue
+                  new_lines.append(line)
+                  
+              with open(pbxproj, "w", encoding="utf-8") as f:
+                  f.writelines(new_lines)
+          EOF
           cd ..
 
           PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
           PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
 
-          echo "Building pure project: $PROJ_PATH"
+          echo "Building cleaned project: $PROJ_PATH"
           xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
           mkdir -p build/Payload
