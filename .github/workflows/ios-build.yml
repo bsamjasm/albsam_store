@@ -10,20 +10,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Pods
+      - name: Build Xcode Project Directly
         run: |
-          cd src
-          pod install --repo-update || true
-          cd ..
-
-      - name: Build Xcode Project
-        run: |
-          WORKSPACE_PATH=$(find . -name "*.xcworkspace" -maxdepth 2 | head -n 1)
-          WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" .xcworkspace)
+          PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
+          PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
           
-          xcodebuild -workspace "$WORKSPACE_PATH" -scheme "$WORKSPACE_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          # Build directly using the project instead of workspace to avoid Pods linkage errors
+          xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           
-          # Find the built app and package it into IPA
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" | head -n 1)
           mkdir -p build/Payload
           cp -r "$APP_PATH" build/Payload/
