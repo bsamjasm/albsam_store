@@ -15,7 +15,6 @@ jobs:
         run: |
           mkdir -p build/Payload/AlbsamApp.app
 
-          # 1. كتابة كود تطبيق آيفون أصلي يفتح لوحة تحكم المتجر مباشرة
           cat << 'EOF' > main.swift
           import UIKit
           import WebKit
@@ -71,7 +70,6 @@ jobs:
           UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
           EOF
 
-          # 2. ترجمة الكود مباشرة إلى ملف تنفيذي للآيفون بدون Xcode Project
           SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
           xcrun --sdk iphoneos swiftc main.swift \
             -target arm64-apple-ios15.0 \
@@ -83,14 +81,12 @@ jobs:
 
           chmod +x build/Payload/AlbsamApp.app/AlbsamApp
 
-          # 3. نسخ أيقونة المتجر إن وجدت في المستودع
           ICON_SRC=$(find . -name "*.png" | head -n 1)
           if [ -n "$ICON_SRC" ]; then
             sips -s format png -z 120 120 "$ICON_SRC" --out build/Payload/AlbsamApp.app/AppIcon60x60@2x.png || true
             sips -s format png -z 180 180 "$ICON_SRC" --out build/Payload/AlbsamApp.app/AppIcon60x60@3x.png || true
           fi
 
-          # 4. إنشاء ملف تعريف التطبيق Info.plist
           cat << 'EOF' > build/Payload/AlbsamApp.app/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -103,11 +99,13 @@ jobs:
               <key>CFBundleName</key>
               <string>AlbsamStore</string>
               <key>CFBundleDisplayName</key>
-              <string>إدارة مجمع البسام</string>
+              <string>Albsam Store</string>
               <key>CFBundleVersion</key>
               <string>1.0</string>
               <key>CFBundleShortVersionString</key>
               <string>1.0</string>
+              <key>MinimumOSVersion</key>
+              <string>15.0</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>LSRequiresIPhoneOS</key>
@@ -144,12 +142,8 @@ jobs:
           </plist>
           EOF
 
-          # 5. توقيع مبدئي وضغط الملف بصيغة IPA
           codesign --force --deep --sign - build/Payload/AlbsamApp.app
           cd build && zip -r app.ipa Payload
 
       - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-ipa
-          path: build/app.ipa
+        uses: actions/upload-artifact@v
