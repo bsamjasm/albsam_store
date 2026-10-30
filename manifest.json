@@ -1,0 +1,8 @@
+{
+  "name": "إدارة مجمع البسام",
+  "short_name": "مجمع البسام",
+  "start_url": "admin.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a3622"
+}
