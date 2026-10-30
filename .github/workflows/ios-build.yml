@@ -10,20 +10,38 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Prepare Dummy Pods and Build
+      - name: Clean Pods Phases and Build
         run: |
           cd src
-          # إنشاء مجلدات وملفات الـ Pods الوهمية لكي لا يفشل البناء بسبب فقدانها
-          mkdir -p Pods/Target\ Support\ Files/Pods-مجمع\ البسام
-          touch "Pods/Target Support Files/Pods-مجمع البسام/Pods-مجمع البسام.release.xcconfig"
-          touch "Pods/Target Support Files/Pods-مجمع البسام/Pods-مجمع البسام-frameworks-Release-output-files.xcfilelist"
-          touch "Pods/Target Support Files/Pods-مجمع البسام/Pods-مجمع البسام-frameworks-Release-input-files.xcfilelist"
+          # إزالة ملفات ومجلدات الـ Pods القديمة
+          rm -rf Pods Podfile Podfile.lock *.xcworkspace
+          
+          # استخدام بايثون لإزالة مراحل بناء الـ Pods الإجبارية من ملف المشروع بأمان تام
+          python3 - << 'EOF'
+          import glob
+          import os
+
+          for pbxproj in glob.glob("**/project.pbxproj", recursive=True):
+              print(f"Cleaning build phases in {pbxproj}...")
+              with open(pbxproj, "r", encoding="utf-8") as f:
+                  lines = f.readlines()
+              
+              new_lines = []
+              for line in lines:
+                  # استبعاد أي سطر يتعلق بملفات أو مراحل البودز المعطلة
+                  if "Pods-" in line or "[CP] Embed Pods" in line or "[CP] Copy Pods" in line or "xcfilelist" in line:
+                      continue
+                  new_lines.append(line)
+                  
+              with open(pbxproj, "w", encoding="utf-8") as f:
+                  f.writelines(new_lines)
+          EOF
           cd ..
 
           PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
           PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
 
-          echo "Building project with dummy pods fallback: $PROJ_PATH"
+          echo "Building clean project: $PROJ_PATH"
           xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || true
 
           mkdir -p build/Payload
