@@ -11,7 +11,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Compile Direct IPA with Optimized Viewport
+      - name: Compile Direct IPA with Fullscreen Viewport
         run: |
           mkdir -p build/Payload/AlbsamApp.app
 
@@ -36,26 +36,22 @@ jobs:
                   super.viewDidLoad()
                   view.backgroundColor = .black
                   
-                  let preferences = WKPreferences()
-                  preferences.javaScriptEnabled = true
-                  
                   let config = WKWebViewConfiguration()
-                  config.preferences = preferences
                   config.allowsInlineMediaPlayback = true
-                  
-                  // حقن كود لضبط الـ Viewport وجعل العناصر تتناسب مع شاشة الآيفون تلقائياً بدون انضغاط
-                  let jscript = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=yes'; document.getElementsByTagName('head')[0].appendChild(meta);"
-                  let script = WKUserScript(source: jscript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-                  config.userContentController.addUserScript(script)
                   
                   webView = WKWebView(frame: .zero, configuration: config)
                   webView.navigationDelegate = self
                   webView.uiDelegate = self
                   webView.translatesAutoresizingMaskIntoConstraints = false
+                  
+                  // إجبار محتوى الصفحة على التمدد بملء شاشة الآيفون ومنع الانكماش
+                  webView.scrollView.isScrollEnabled = true
+                  webView.scrollView.bounces = true
+                  
                   view.addSubview(webView)
                   
                   NSLayoutConstraint.activate([
-                      webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                      webView.topAnchor.constraint(equalTo: view.topAnchor),
                       webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
                       webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
@@ -65,6 +61,12 @@ jobs:
                       let request = URLRequest(url: url)
                       webView.load(request)
                   }
+              }
+
+              func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+                  // حقن كود برمجياً لتوسيع عناصر الصفحة وتناسبها مع عرض أيفون 11 فور اكتمال التحميل
+                  let js = "var meta = document.querySelector('meta[name=viewport]'); if (!meta) { meta = document.createElement('meta'); meta.name = 'viewport'; document.getElementsByTagName('head')[0].appendChild(meta); } meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';"
+                  webView.evaluateJavaScript(js, completionHandler: nil)
               }
 
               func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
@@ -128,14 +130,14 @@ jobs:
                   <integer>1</integer>
                   <integer>2</integer>
               </array>
-              <key>UIRequiredDeviceCapabilities</key>
-              <array>
-                  <string>arm64</string>
-              </array>
-              <key>UISupportedInterfaceOrientations</key>
-              <array>
-                  <string>UIInterfaceOrientationPortrait</string>
-              </array>
+                  <key>UIRequiredDeviceCapabilities</key>
+                  <array>
+                      <string>arm64</string>
+                  </array>
+                  <key>UISupportedInterfaceOrientations</key>
+                  <array>
+                      <string>UIInterfaceOrientationPortrait</string>
+                  </array>
               <key>CFBundleIcons</key>
               <dict>
                   <key>CFBundlePrimaryIcon</key>
