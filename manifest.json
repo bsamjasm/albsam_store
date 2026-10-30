@@ -1,0 +1,15 @@
+{
+  "name": "إدارة مجمع البسام",
+  "short_name": "مجمع البسام",
+  "start_url": "admin.html",
+  "display": "standalone",
+  "background_color": "#0a3622",
+  "theme_color": "#0a3622",
+  "icons": [
+    {
+      "src": "لوكو.png",
+      "sizes": "1254x1254",
+      "type": "image/png"
+    }
+  ]
+}
