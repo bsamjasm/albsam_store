@@ -12,4 +12,13 @@ jobs:
 
       - name: Build Xcode Project
         run: |
-          xcodebuild -project "src/*.xcodeproj" -scheme "*" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || true
+          xcodebuild -project "src/*.xcodeproj" -scheme "*" -sdk iphoneos -configuration Release archive -archivePath build/App.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          mkdir -p build/Payload
+          mv build/App.xcarchive/Products/Applications/*.app build/Payload/
+          cd build && zip -r app.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-ipa
+          path: build/app.ipa
