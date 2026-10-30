@@ -10,17 +10,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Pods and Build Workspace
+      - name: Build Pure Project
         run: |
           cd src
-          pod install
+          # إزالة ملفات البودز ومساحة العمل نهائياً لكي لا يحدث أي خطأ ربط
+          rm -rf Pods Podfile Podfile.lock *.xcworkspace
           cd ..
 
-          WORKSPACE_PATH=$(find . -name "*.xcworkspace" -maxdepth 2 | head -n 1)
-          WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" .xcworkspace)
+          PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
+          PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
 
-          echo "Building workspace: $WORKSPACE_PATH"
-          xcodebuild -workspace "$WORKSPACE_PATH" -scheme "$WORKSPACE_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          echo "Building pure project: $PROJ_PATH"
+          xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
           mkdir -p build/Payload
           APP_DIR=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -maxdepth 4 | head -n 1)
