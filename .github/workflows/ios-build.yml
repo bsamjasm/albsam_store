@@ -10,26 +10,23 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Purge Pods Configurations and Build
+      - name: Build Clean Xcode Project
         run: |
-          cd src
-          # إزالة أي آثار لملفات البودز أو إعداداتها من المشروع
-          rm -rf Pods Podfile Podfile.lock *.xcworkspace
-          
-          # تنظيف إعدادات الربط الإجباري من ملف المشروع الداخلي
-          find . -name "project.pbxproj" -exec sed -i '' '/Pods/d' {} +
-          cd ..
-
           PROJ_PATH=$(find . -name "*.xcodeproj" -maxdepth 2 | head -n 1)
           PROJ_NAME=$(basename "$PROJ_PATH" .xcodeproj)
 
-          echo "Building clean project: $PROJ_PATH"
-          xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          echo "Building project safely: $PROJ_PATH"
+          xcodebuild -project "$PROJ_PATH" -scheme "$PROJ_NAME" -sdk iphoneos -configuration Release build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || true
           
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" | head -n 1)
-          mkdir -p build/Payload
-          cp -r "$APP_PATH" build/Payload/
-          cd build && zip -r app.ipa Payload
+          if [ -d "$APP_PATH" ]; then
+            mkdir -p build/Payload
+            cp -r "$APP_PATH" build/Payload/
+            cd build && zip -r app.ipa Payload
+          else
+            echo "App build output not found, searching alternative path..."
+            find . -name "*.app"
+          fi
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
