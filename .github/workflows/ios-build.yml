@@ -20,6 +20,7 @@ jobs:
           import WebKit
           import AVFoundation
           import LocalAuthentication
+          import UserNotifications
 
           // ===== إعدادات ثابتة =====
           let splashSeconds: TimeInterval = 2.5  // مدة شاشة الترحيب
@@ -33,6 +34,12 @@ jobs:
           // ===== مفاتيح الإعدادات (تُحفظ في الجوال) =====
           let kRequireAuth = "requireAuth"
           let kKeepAwake = "keepAwake"
+          let kHaptic = "haptic"
+          let kNight = "night"
+          let kFontScale = "fontScale"
+          let kAutoLock = "autoLock"
+          let kSecureActions = "secureActions"
+          var pendingShortcut: String?
 
           // ===== أدوات القفل =====
           enum Auth {
@@ -140,15 +147,32 @@ jobs:
               }
           }
 
+          class WeakHandler: NSObject, WKScriptMessageHandler {
+              weak var target: WKScriptMessageHandler?
+              init(_ t: WKScriptMessageHandler) { target = t }
+              func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+                  target?.userContentController(userContentController, didReceive: message)
+              }
+          }
+
           // ===== شاشة الإعدادات =====
           class SettingsViewController: UIViewController {
               var onReload: (() -> Void)?
+              var onAppearance: (() -> Void)?
+              var onClearCache: (() -> Void)?
               let lockSwitch = UISwitch()
+              let secureSwitch = UISwitch()
               let awakeSwitch = UISwitch()
+              let hapticSwitch = UISwitch()
+              let nightSwitch = UISwitch()
+              let lockSeg = UISegmentedControl(items: ["فوراً", "دقيقة", "5 دقائق", "أبداً"])
+              let fontSeg = UISegmentedControl(items: ["صغير", "عادي", "كبير"])
+              let lockDelays = [0, 60, 300, -1]
 
               override func viewDidLoad() {
                   super.viewDidLoad()
                   view.backgroundColor = .systemBackground
+                  let d = UserDefaults.standard
 
                   let title = UILabel()
                   title.text = "الإعدادات"
@@ -156,16 +180,22 @@ jobs:
                   title.textColor = storeGreen
                   title.textAlignment = .right
 
-                  lockSwitch.isOn = UserDefaults.standard.bool(forKey: kRequireAuth)
-                  lockSwitch.onTintColor = storeGreen
+                  lockSwitch.isOn = d.bool(forKey: kRequireAuth)
+                  secureSwitch.isOn = d.bool(forKey: kSecureActions)
+                  awakeSwitch.isOn = d.bool(forKey: kKeepAwake)
+                  hapticSwitch.isOn = d.bool(forKey: kHaptic)
+                  nightSwitch.isOn = d.bool(forKey: kNight)
+                  for sw in [lockSwitch, secureSwitch, awakeSwitch, hapticSwitch, nightSwitch] { sw.onTintColor = storeGreen }
                   lockSwitch.addTarget(self, action: #selector(lockChanged(_:)), for: .valueChanged)
-
-                  awakeSwitch.isOn = UserDefaults.standard.bool(forKey: kKeepAwake)
-                  awakeSwitch.onTintColor = storeGreen
+                  secureSwitch.addTarget(self, action: #selector(secureChanged(_:)), for: .valueChanged)
                   awakeSwitch.addTarget(self, action: #selector(awakeChanged(_:)), for: .valueChanged)
+                  hapticSwitch.addTarget(self, action: #selector(hapticChanged(_:)), for: .valueChanged)
+                  nightSwitch.addTarget(self, action: #selector(nightChanged(_:)), for: .valueChanged)
 
-                  let lockRow = makeRow(title: "قفل التطبيق", subtitle: "طلب Face ID أو رمز الجوال عند فتح التطبيق", toggle: lockSwitch)
-                  let awakeRow = makeRow(title: "إبقاء الشاشة مضاءة", subtitle: "منع انطفاء الشاشة أثناء استخدام اللوحة", toggle: awakeSwitch)
+                  lockSeg.selectedSegmentIndex = lockDelays.firstIndex(of: d.integer(forKey: kAutoLock)) ?? 1
+                  lockSeg.addTarget(self, action: #selector(lockDelayChanged), for: .valueChanged)
+                  fontSeg.selectedSegmentIndex = min(2, max(0, d.integer(forKey: kFontScale)))
+                  fontSeg.addTarget(self, action: #selector(fontChanged), for: .valueChanged)
 
                   let reload = UIButton(type: .system)
                   reload.setTitle("إعادة تحميل اللوحة", for: .normal)
@@ -176,6 +206,15 @@ jobs:
                   reload.heightAnchor.constraint(equalToConstant: 46).isActive = true
                   reload.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
 
+                  let clear = UIButton(type: .system)
+                  clear.setTitle("مسح الكاش وبيانات الموقع", for: .normal)
+                  clear.setTitleColor(.systemRed, for: .normal)
+                  clear.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+                  clear.backgroundColor = UIColor.systemRed.withAlphaComponent(0.08)
+                  clear.layer.cornerRadius = 12
+                  clear.heightAnchor.constraint(equalToConstant: 46).isActive = true
+                  clear.addTarget(self, action: #selector(clearTapped), for: .touchUpInside)
+
                   let version = UILabel()
                   let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
                   version.text = "مجمع البسام – الإصدار \(v)"
@@ -183,19 +222,39 @@ jobs:
                   version.textColor = .secondaryLabel
                   version.textAlignment = .center
 
-                  let stack = UIStackView(arrangedSubviews: [title, lockRow, awakeRow, reload, version])
+                  let views: [UIView] = [
+                      title,
+                      makeRow(title: "قفل التطبيق", subtitle: "طلب Face ID أو رمز الجوال عند فتح التطبيق", accessory: lockSwitch),
+                      makeSegRow(title: "القفل التلقائي", subtitle: "يُطلب القفل عند الرجوع للتطبيق بعد هذه المدة", seg: lockSeg),
+                      makeRow(title: "حماية العمليات الحساسة", subtitle: "Face ID قبل حذف منتج أو طلب أو التصدير أو النسخ الاحتياطي", accessory: secureSwitch),
+                      makeRow(title: "إبقاء الشاشة مضاءة", subtitle: "منع انطفاء الشاشة أثناء استخدام اللوحة", accessory: awakeSwitch),
+                      makeRow(title: "الاهتزاز عند الضغط", subtitle: "اهتزاز خفيف عند الضغط على الأزرار", accessory: hapticSwitch),
+                      makeRow(title: "الوضع الليلي", subtitle: "خلفية داكنة للوحة الإدارة", accessory: nightSwitch),
+                      makeSegRow(title: "حجم الخط", subtitle: "تكبير أو تصغير محتوى اللوحة", seg: fontSeg),
+                      reload, clear, version
+                  ]
+                  let stack = UIStackView(arrangedSubviews: views)
                   stack.axis = .vertical
-                  stack.spacing = 18
+                  stack.spacing = 14
                   stack.translatesAutoresizingMaskIntoConstraints = false
-                  view.addSubview(stack)
+
+                  let scroll = UIScrollView()
+                  scroll.translatesAutoresizingMaskIntoConstraints = false
+                  view.addSubview(scroll)
+                  scroll.addSubview(stack)
                   NSLayoutConstraint.activate([
-                      stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 28),
-                      stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 22),
-                      stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -22)
+                      scroll.topAnchor.constraint(equalTo: view.topAnchor),
+                      scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                      stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 28),
+                      stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -28),
+                      stack.leadingAnchor.constraint(equalTo: scroll.frameLayoutGuide.leadingAnchor, constant: 22),
+                      stack.trailingAnchor.constraint(equalTo: scroll.frameLayoutGuide.trailingAnchor, constant: -22)
                   ])
               }
 
-              func makeRow(title: String, subtitle: String, toggle: UISwitch) -> UIView {
+              func styledTexts(title: String, subtitle: String) -> UIStackView {
                   let t = UILabel()
                   t.text = title
                   t.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
@@ -209,12 +268,26 @@ jobs:
                   let texts = UIStackView(arrangedSubviews: [t, s])
                   texts.axis = .vertical
                   texts.spacing = 3
+                  return texts
+              }
 
-                  let row = UIStackView(arrangedSubviews: [texts, toggle])
+              func makeRow(title: String, subtitle: String, accessory: UIView) -> UIView {
+                  let row = UIStackView(arrangedSubviews: [styledTexts(title: title, subtitle: subtitle), accessory])
                   row.axis = .horizontal
                   row.alignment = .center
                   row.spacing = 12
                   row.semanticContentAttribute = .forceRightToLeft
+                  row.isLayoutMarginsRelativeArrangement = true
+                  row.layoutMargins = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+                  row.backgroundColor = UIColor.secondarySystemBackground
+                  row.layer.cornerRadius = 14
+                  return row
+              }
+
+              func makeSegRow(title: String, subtitle: String, seg: UISegmentedControl) -> UIView {
+                  let row = UIStackView(arrangedSubviews: [styledTexts(title: title, subtitle: subtitle), seg])
+                  row.axis = .vertical
+                  row.spacing = 10
                   row.isLayoutMarginsRelativeArrangement = true
                   row.layoutMargins = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
                   row.backgroundColor = UIColor.secondarySystemBackground
@@ -228,23 +301,34 @@ jobs:
                   present(a, animated: true)
               }
 
-              @objc func lockChanged(_ sender: UISwitch) {
+              // تفعيل أو إلغاء إعداد أمني يتطلب تأكيد الهوية
+              func protectedToggle(_ sender: UISwitch, key: String, reason: String) {
                   let want = sender.isOn
-                  if !Auth.isAvailable() {
+                  if want && !Auth.isAvailable() {
                       sender.setOn(false, animated: true)
-                      UserDefaults.standard.set(false, forKey: kRequireAuth)
                       showAlert("فعّل رمز المرور أو Face ID في إعدادات الجوال أولاً")
                       return
                   }
-                  // نتأكد من هوية المستخدم قبل تفعيل القفل أو إلغائه
-                  Auth.verify(reason: want ? "تفعيل قفل التطبيق" : "إلغاء قفل التطبيق") { ok in
+                  Auth.verify(reason: reason) { ok in
                       if ok {
-                          UserDefaults.standard.set(want, forKey: kRequireAuth)
+                          UserDefaults.standard.set(want, forKey: key)
                           UIImpactFeedbackGenerator(style: .light).impactOccurred()
                       } else {
                           sender.setOn(!want, animated: true)
                       }
                   }
+              }
+
+              @objc func lockChanged(_ sender: UISwitch) {
+                  protectedToggle(sender, key: kRequireAuth, reason: sender.isOn ? "تفعيل قفل التطبيق" : "إلغاء قفل التطبيق")
+              }
+
+              @objc func secureChanged(_ sender: UISwitch) {
+                  protectedToggle(sender, key: kSecureActions, reason: sender.isOn ? "تفعيل حماية العمليات الحساسة" : "إلغاء حماية العمليات الحساسة")
+              }
+
+              @objc func lockDelayChanged() {
+                  UserDefaults.standard.set(lockDelays[lockSeg.selectedSegmentIndex], forKey: kAutoLock)
               }
 
               @objc func awakeChanged(_ sender: UISwitch) {
@@ -253,15 +337,45 @@ jobs:
                   UIImpactFeedbackGenerator(style: .light).impactOccurred()
               }
 
+              @objc func hapticChanged(_ sender: UISwitch) {
+                  UserDefaults.standard.set(sender.isOn, forKey: kHaptic)
+                  if sender.isOn { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+              }
+
+              @objc func nightChanged(_ sender: UISwitch) {
+                  UserDefaults.standard.set(sender.isOn, forKey: kNight)
+                  onAppearance?()
+              }
+
+              @objc func fontChanged() {
+                  UserDefaults.standard.set(fontSeg.selectedSegmentIndex, forKey: kFontScale)
+                  onAppearance?()
+              }
+
               @objc func reloadTapped() {
                   dismiss(animated: true) { self.onReload?() }
+              }
+
+              @objc func clearTapped() {
+                  let a = UIAlertController(title: "مسح الكاش", message: "سيُحذف أيضاً مفتاح الذكاء الاصطناعي وإعدادات الصوت المحفوظة في اللوحة.", preferredStyle: .alert)
+                  a.addAction(UIAlertAction(title: "إلغاء", style: .cancel))
+                  a.addAction(UIAlertAction(title: "مسح", style: .destructive) { _ in
+                      self.dismiss(animated: true) { self.onClearCache?() }
+                  })
+                  present(a, animated: true)
               }
           }
 
           class AppDelegate: UIResponder, UIApplicationDelegate {
               var window: UIWindow?
               func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-                  UserDefaults.standard.register(defaults: [kRequireAuth: true, kKeepAwake: true])
+                  UserDefaults.standard.register(defaults: [
+                      kRequireAuth: true, kKeepAwake: true, kHaptic: true, kNight: false,
+                      kFontScale: 1, kAutoLock: 60, kSecureActions: true
+                  ])
+
+                  // إذن شارة الأيقونة (عدد الطلبات الجديدة)
+                  UNUserNotificationCenter.current().requestAuthorization(options: [.badge]) { _, _ in }
 
                   // الصوت يعمل حتى لو الجوال على وضع الصامت
                   _ = try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -269,15 +383,27 @@ jobs:
                   // منع انطفاء الشاشة (حسب الإعدادات)
                   application.isIdleTimerDisabled = UserDefaults.standard.bool(forKey: kKeepAwake)
 
+                  if let item = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem {
+                      pendingShortcut = item.type
+                  }
+
                   let window = UIWindow(frame: UIScreen.main.bounds)
                   window.rootViewController = WebViewController()
                   window.makeKeyAndVisible()
                   self.window = window
                   return true
               }
+
+              // اختصارات الأيقونة (ضغطة مطولة)
+              func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+                  pendingShortcut = shortcutItem.type
+                  (window?.rootViewController as? WebViewController)?.runShortcut()
+                  completionHandler(true)
+              }
           }
 
-          class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
+
+          class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
               var webView: WKWebView!
               let splash = SplashView()
               let splashSpinner = UIActivityIndicatorView(style: .large)
@@ -285,6 +411,9 @@ jobs:
               let errorView = UIView()
               let progressBar = UIProgressView(progressViewStyle: .bar)
               let settingsButton = UIButton(type: .system)
+              let lockCover = UIView()
+              var backgroundDate: Date?
+              var pageLoaded = false
               var progressObserver: NSKeyValueObservation?
               var splashTimeUp = false
               var pageReady = false
@@ -298,6 +427,18 @@ jobs:
 
                   let config = WKWebViewConfiguration()
                   config.allowsInlineMediaPlayback = true
+                      let hapticJS = """
+                      (function(){
+                        document.addEventListener('click', function(e){
+                          var t = e.target && e.target.closest ? e.target.closest('button,a,select,label') : null;
+                          if (t && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native) {
+                            window.webkit.messageHandlers.native.postMessage({type:'haptic'});
+                          }
+                        }, true);
+                      })();
+                      """
+                      config.userContentController.add(WeakHandler(self), name: "native")
+                      config.userContentController.addUserScript(WKUserScript(source: hapticJS, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
 
                   webView = WKWebView(frame: .zero, configuration: config)
                   webView.navigationDelegate = self
@@ -322,6 +463,9 @@ jobs:
 
                   setupProgressBar()
                   setupSettingsButton()
+                  setupLockCover()
+                  NotificationCenter.default.addObserver(self, selector: #selector(didBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+                  NotificationCenter.default.addObserver(self, selector: #selector(willForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
                   setupErrorView()
                   setupSplash()
 
@@ -347,6 +491,136 @@ jobs:
                       authenticate()
                   }
               }
+
+              // ---------- رسائل الصفحة (Face ID للعمليات الحساسة، الاهتزاز، الشارة) ----------
+              func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+                  guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+                  switch type {
+                  case "haptic":
+                      if UserDefaults.standard.bool(forKey: kHaptic) {
+                          UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                      }
+                  case "badge":
+                      let n = (body["n"] as? NSNumber)?.intValue ?? 0
+                      UIApplication.shared.applicationIconBadgeNumber = max(0, n)
+                  case "auth":
+                      let id = (body["id"] as? NSNumber)?.intValue ?? 0
+                      let reason = body["reason"] as? String ?? "تأكيد العملية"
+                      if !UserDefaults.standard.bool(forKey: kSecureActions) {
+                          replyAuth(id, true)
+                          return
+                      }
+                      Auth.verify(reason: reason) { ok in self.replyAuth(id, ok) }
+                  default:
+                      break
+                  }
+              }
+
+              func replyAuth(_ id: Int, _ ok: Bool) {
+                  webView.evaluateJavaScript("window.__nativeAuth(\(id),\(ok ? "true" : "false"))", completionHandler: nil)
+              }
+
+              // ---------- المظهر: الوضع الليلي وحجم الخط ----------
+              func applyAppearance() {
+                  let d = UserDefaults.standard
+                  let night = d.bool(forKey: kNight)
+                  let scales: [Double] = [0.9, 1.0, 1.15]
+                  let scale = scales[min(2, max(0, d.integer(forKey: kFontScale)))]
+                  var css = "body{zoom:\(scale)}"
+                  if night {
+                      css += "html{filter:invert(1) hue-rotate(180deg);background:#fff}img,video,canvas{filter:invert(1) hue-rotate(180deg)}"
+                  }
+                  let js = "(function(){var s=document.getElementById('app-style');if(!s){s=document.createElement('style');s.id='app-style';document.head.appendChild(s);}s.textContent='\(css)';})();"
+                  webView.evaluateJavaScript(js, completionHandler: nil)
+                  view.backgroundColor = night ? .black : .white
+              }
+
+              func clearCache() {
+                  let types = WKWebsiteDataStore.allWebsiteDataTypes()
+                  WKWebsiteDataStore.default().removeData(ofTypes: types, modifiedSince: Date(timeIntervalSince1970: 0)) {
+                      DispatchQueue.main.async { self.webView.reload() }
+                  }
+              }
+
+              // ---------- اختصارات الأيقونة ----------
+              func runShortcut() {
+                  guard pageLoaded, let t = pendingShortcut else { return }
+                  pendingShortcut = nil
+                  var js = ""
+                  if t == "orders" { js = "showTab('orders')" }
+                  else if t == "newProduct" { js = "showTab('products');openAddModal()" }
+                  else if t == "stats" { js = "showTab('stats')" }
+                  if !js.isEmpty { webView.evaluateJavaScript(js, completionHandler: nil) }
+              }
+
+              // ---------- القفل التلقائي عند الرجوع من الخلفية ----------
+              func setupLockCover() {
+                  lockCover.backgroundColor = storeGreen
+                  lockCover.translatesAutoresizingMaskIntoConstraints = false
+                  let icon = UIImageView(image: UIImage(systemName: "lock.fill"))
+                  icon.tintColor = storeAmber
+                  icon.contentMode = .scaleAspectFit
+                  icon.translatesAutoresizingMaskIntoConstraints = false
+                  icon.widthAnchor.constraint(equalToConstant: 56).isActive = true
+                  icon.heightAnchor.constraint(equalToConstant: 56).isActive = true
+                  let label = UILabel()
+                  label.text = "التطبيق مقفل"
+                  label.font = UIFont.systemFont(ofSize: 22, weight: .heavy)
+                  label.textColor = .white
+                  let button = UIButton(type: .system)
+                  button.setTitle("فتح التطبيق", for: .normal)
+                  button.setTitleColor(storeGreen, for: .normal)
+                  button.backgroundColor = storeAmber
+                  button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .bold)
+                  button.layer.cornerRadius = 12
+                  button.translatesAutoresizingMaskIntoConstraints = false
+                  button.widthAnchor.constraint(equalToConstant: 180).isActive = true
+                  button.heightAnchor.constraint(equalToConstant: 46).isActive = true
+                  button.addTarget(self, action: #selector(unlockAttempt), for: .touchUpInside)
+                  let stack = UIStackView(arrangedSubviews: [icon, label, button])
+                  stack.axis = .vertical
+                  stack.alignment = .center
+                  stack.spacing = 18
+                  stack.translatesAutoresizingMaskIntoConstraints = false
+                  lockCover.addSubview(stack)
+                  NSLayoutConstraint.activate([
+                      stack.centerXAnchor.constraint(equalTo: lockCover.centerXAnchor),
+                      stack.centerYAnchor.constraint(equalTo: lockCover.centerYAnchor)
+                  ])
+              }
+
+              @objc func didBackground() {
+                  backgroundDate = Date()
+              }
+
+              @objc func willForeground() {
+                  guard splashGone, let bg = backgroundDate else { return }
+                  backgroundDate = nil
+                  let d = UserDefaults.standard
+                  guard d.bool(forKey: kRequireAuth) else { return }
+                  let limit = d.integer(forKey: kAutoLock)
+                  if limit < 0 { return }
+                  if Date().timeIntervalSince(bg) >= Double(limit) { showLockCover() }
+              }
+
+              func showLockCover() {
+                  if lockCover.superview != nil { return }
+                  view.addSubview(lockCover)
+                  NSLayoutConstraint.activate([
+                      lockCover.topAnchor.constraint(equalTo: view.topAnchor),
+                      lockCover.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      lockCover.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      lockCover.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+                  unlockAttempt()
+              }
+
+              @objc func unlockAttempt() {
+                  Auth.verify(reason: "افتح لوحة إدارة مجمع البسام") { ok in
+                      if ok { self.lockCover.removeFromSuperview() }
+                  }
+              }
+
 
               // ---------- شريط تقدم التحميل ----------
               func setupProgressBar() {
@@ -393,9 +667,11 @@ jobs:
               @objc func openSettings() {
                   let vc = SettingsViewController()
                   vc.onReload = { [weak self] in self?.reloadPage() }
+                  vc.onAppearance = { [weak self] in self?.applyAppearance() }
+                  vc.onClearCache = { [weak self] in self?.clearCache() }
                   vc.modalPresentationStyle = .pageSheet
                   if let sheet = vc.sheetPresentationController {
-                      sheet.detents = [.medium()]
+                      sheet.detents = [.medium(), .large()]
                       sheet.prefersGrabberVisible = true
                   }
                   present(vc, animated: true)
@@ -653,6 +929,9 @@ jobs:
                   document.head.appendChild(style);
                   """
                   webView.evaluateJavaScript(script, completionHandler: nil)
+                  applyAppearance()
+                  pageLoaded = true
+                  runShortcut()
               }
 
               // فتح روابط الاتصال والواتساب في التطبيقات الخارجية
@@ -725,6 +1004,7 @@ jobs:
             -framework Foundation \
             -framework AVFoundation \
             -framework LocalAuthentication \
+            -framework UserNotifications \
             -framework QuartzCore \
             -o build/Payload/AlbsamApp.app/AlbsamApp
 
@@ -749,9 +1029,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>AlbsamStore</string>
               <key>CFBundleVersion</key>
-              <string>1.4</string>
+              <string>1.5</string>
               <key>CFBundleShortVersionString</key>
-              <string>1.4</string>
+              <string>1.5</string>
               <key>MinimumOSVersion</key>
               <string>15.0</string>
               <key>CFBundlePackageType</key>
@@ -789,6 +1069,34 @@ jobs:
                       </array>
                   </dict>
               </dict>
+              <key>UIApplicationShortcutItems</key>
+              <array>
+                  <dict>
+                      <key>UIApplicationShortcutItemType</key>
+                      <string>orders</string>
+                      <key>UIApplicationShortcutItemTitle</key>
+                      <string>الطلبات</string>
+                      <key>UIApplicationShortcutItemIconSymbolName</key>
+                      <string>cart</string>
+                  </dict>
+                  <dict>
+                      <key>UIApplicationShortcutItemType</key>
+                      <string>newProduct</string>
+                      <key>UIApplicationShortcutItemTitle</key>
+                      <string>منتج جديد</string>
+                      <key>UIApplicationShortcutItemIconSymbolName</key>
+                      <string>plus.circle</string>
+                  </dict>
+                  <dict>
+                      <key>UIApplicationShortcutItemType</key>
+                      <string>stats</string>
+                      <key>UIApplicationShortcutItemTitle</key>
+                      <string>الإحصائيات</string>
+                      <key>UIApplicationShortcutItemIconSymbolName</key>
+                      <string>chart.bar</string>
+                  </dict>
+              </array>
+
               <key>NSCameraUsageDescription</key>
               <string>لالتقاط صور المنتجات وإضافتها إلى المتجر</string>
               <key>NSPhotoLibraryUsageDescription</key>
