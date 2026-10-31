@@ -11,7 +11,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Compile Direct IPA with True Fullscreen Viewport
+      - name: Compile Direct IPA with Perfect Mobile Scaling
         run: |
           mkdir -p build/Payload/AlbsamApp.app
 
@@ -44,13 +44,11 @@ jobs:
                   webView.uiDelegate = self
                   webView.translatesAutoresizingMaskIntoConstraints = false
                   
-                  // تعطيل الارتداد والسماح بالتمرير بملء الشاشة
                   webView.scrollView.isScrollEnabled = true
-                  webView.scrollView.bounces = false
+                  webView.scrollView.bounces = true
                   
                   view.addSubview(webView)
                   
-                  // تثبيت الـ WebView ليمتد على كامل حواف الشاشة (بما فيها الـ Safe Area لضمان الملء التام)
                   NSLayoutConstraint.activate([
                       webView.topAnchor.constraint(equalTo: view.topAnchor),
                       webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -65,8 +63,20 @@ jobs:
               }
 
               func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-                  // حقن إعدادات العرض لفرض التمدد الكامل وعدم الانضغاط على الشاشة
-                  let script = "var meta = document.querySelector('meta[name=viewport]'); if (!meta) { meta = document.createElement('meta'); meta.name = 'viewport'; document.getElementsByTagName('head')[0].appendChild(meta); } meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';"
+                  // حقن أكواد CSS وجافاسكريبت لفك انضغاط الشاشة تماماً وإلغاء تثبيت الهيدر المزعج
+                  let script = """
+                  var meta = document.querySelector('meta[name=viewport]');
+                  if (!meta) {
+                      meta = document.createElement('meta');
+                      meta.name = 'viewport';
+                      document.getElementsByTagName('head')[0].appendChild(meta);
+                  }
+                  meta.content = 'width=device-width, initial-scale=0.9, maximum-scale=1.0, user-scalable=no';
+                  
+                  var style = document.createElement('style');
+                  style.innerHTML = 'header { position: relative !important; top: unset !important; } body { width: 100% !important; margin: 0 !important; padding: 0 4px !important; }';
+                  document.head.appendChild(style);
+                  """
                   webView.evaluateJavaScript(script, completionHandler: nil)
               }
 
