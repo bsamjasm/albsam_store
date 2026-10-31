@@ -18,10 +18,26 @@ jobs:
           cat << 'EOF' > main.swift
           import UIKit
           import WebKit
+          import AVFoundation
+          import LocalAuthentication
+
+          // ===== إعدادات يمكن تغييرها =====
+          let requireAuth = true                 // قفل Face ID / رمز الجوال عند فتح التطبيق (false لإلغائه)
+          let splashSeconds: TimeInterval = 2.0  // مدة شاشة الترحيب
+          let adminURL = "https://bsamjasm.github.io/albsam_store/admin.html"
+
+          let storeGreen = UIColor(red: 0.04, green: 0.21, blue: 0.13, alpha: 1)
+          let storeAmber = UIColor(red: 0.984, green: 0.749, blue: 0.141, alpha: 1)
 
           class AppDelegate: UIResponder, UIApplicationDelegate {
               var window: UIWindow?
               func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  // الصوت يعمل حتى لو الجوال على وضع الصامت
+                  _ = try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                  _ = try? AVAudioSession.sharedInstance().setActive(true)
+                  // منع انطفاء الشاشة أثناء فتح اللوحة
+                  application.isIdleTimerDisabled = true
+
                   let window = UIWindow(frame: UIScreen.main.bounds)
                   window.rootViewController = WebViewController()
                   window.makeKeyAndVisible()
@@ -32,6 +48,16 @@ jobs:
 
           class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
               var webView: WKWebView!
+              let splash = UIView()
+              let splashSpinner = UIActivityIndicatorView(style: .large)
+              let retryAuthButton = UIButton(type: .system)
+              let errorView = UIView()
+              var splashTimeUp = false
+              var pageReady = false
+              var authOK = false
+              var splashGone = false
+              var authStarted = false
+
               override func viewDidLoad() {
                   super.viewDidLoad()
                   view.backgroundColor = .white
@@ -46,6 +72,10 @@ jobs:
                   webView.scrollView.isScrollEnabled = true
                   webView.scrollView.bounces = true
 
+                  let rc = UIRefreshControl()
+                  rc.addTarget(self, action: #selector(reloadPage), for: .valueChanged)
+                  webView.scrollView.refreshControl = rc
+
                   view.addSubview(webView)
 
                   NSLayoutConstraint.activate([
@@ -55,12 +85,213 @@ jobs:
                       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
                   ])
 
-                  if let url = URL(string: "https://bsamjasm.github.io/albsam_store/admin.html") {
+                  setupErrorView()
+                  setupSplash()
+
+                  if let url = URL(string: adminURL) {
                       webView.load(URLRequest(url: url))
+                  }
+
+                  DispatchQueue.main.asyncAfter(deadline: .now() + splashSeconds) {
+                      self.splashTimeUp = true
+                      self.tryHideSplash()
+                  }
+                  // أمان: لا تبقى شاشة الترحيب أكثر من 8 ثوانٍ بسبب بطء الشبكة
+                  DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                      self.pageReady = true
+                      self.tryHideSplash()
                   }
               }
 
+              override func viewDidAppear(_ animated: Bool) {
+                  super.viewDidAppear(animated)
+                  if !authStarted {
+                      authStarted = true
+                      authenticate()
+                  }
+              }
+
+              // ---------- شاشة الترحيب (نفس شاشة الموقع) ----------
+              func setupSplash() {
+                  splash.backgroundColor = storeGreen
+                  splash.translatesAutoresizingMaskIntoConstraints = false
+                  view.addSubview(splash)
+                  NSLayoutConstraint.activate([
+                      splash.topAnchor.constraint(equalTo: view.topAnchor),
+                      splash.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      splash.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      splash.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+
+                  let logo = UILabel()
+                  logo.text = "ب"
+                  logo.font = UIFont.systemFont(ofSize: 44, weight: .black)
+                  logo.textColor = storeGreen
+                  logo.textAlignment = .center
+                  logo.backgroundColor = storeAmber
+                  logo.layer.cornerRadius = 20
+                  logo.layer.masksToBounds = true
+                  logo.translatesAutoresizingMaskIntoConstraints = false
+                  logo.widthAnchor.constraint(equalToConstant: 80).isActive = true
+                  logo.heightAnchor.constraint(equalToConstant: 80).isActive = true
+
+                  let pulse = CABasicAnimation(keyPath: "transform.scale")
+                  pulse.fromValue = 1.0
+                  pulse.toValue = 1.08
+                  pulse.duration = 0.7
+                  pulse.autoreverses = true
+                  pulse.repeatCount = .infinity
+                  logo.layer.add(pulse, forKey: "pulse")
+
+                  let title = UILabel()
+                  title.text = "مجمع البسام"
+                  title.font = UIFont.systemFont(ofSize: 26, weight: .heavy)
+                  title.textColor = .white
+                  title.textAlignment = .center
+
+                  splashSpinner.color = storeAmber
+                  splashSpinner.startAnimating()
+
+                  retryAuthButton.setTitle("فتح التطبيق", for: .normal)
+                  retryAuthButton.setTitleColor(storeAmber, for: .normal)
+                  retryAuthButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
+                  retryAuthButton.addTarget(self, action: #selector(retryAuth), for: .touchUpInside)
+                  retryAuthButton.isHidden = true
+
+                  let stack = UIStackView(arrangedSubviews: [logo, title, splashSpinner, retryAuthButton])
+                  stack.axis = .vertical
+                  stack.alignment = .center
+                  stack.spacing = 18
+                  stack.translatesAutoresizingMaskIntoConstraints = false
+                  splash.addSubview(stack)
+                  NSLayoutConstraint.activate([
+                      stack.centerXAnchor.constraint(equalTo: splash.centerXAnchor),
+                      stack.centerYAnchor.constraint(equalTo: splash.centerYAnchor)
+                  ])
+              }
+
+              func tryHideSplash() {
+                  guard !splashGone, splashTimeUp, pageReady, authOK else { return }
+                  splashGone = true
+                  UIView.animate(withDuration: 0.5, animations: {
+                      self.splash.alpha = 0
+                  }, completion: { _ in
+                      self.splash.removeFromSuperview()
+                  })
+              }
+
+              // ---------- القفل (Face ID أو رمز الجوال) ----------
+              func authenticate() {
+                  if !requireAuth {
+                      authOK = true
+                      tryHideSplash()
+                      return
+                  }
+                  let ctx = LAContext()
+                  var err: NSError?
+                  if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
+                      ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "افتح لوحة إدارة مجمع البسام") { ok, _ in
+                          DispatchQueue.main.async {
+                              if ok {
+                                  self.authOK = true
+                                  self.retryAuthButton.isHidden = true
+                                  self.splashSpinner.startAnimating()
+                                  self.tryHideSplash()
+                              } else {
+                                  self.splashSpinner.stopAnimating()
+                                  self.retryAuthButton.isHidden = false
+                              }
+                          }
+                      }
+                  } else {
+                      // لا يوجد قفل على الجوال: يُفتح التطبيق مباشرة
+                      authOK = true
+                      tryHideSplash()
+                  }
+              }
+
+              @objc func retryAuth() {
+                  retryAuthButton.isHidden = true
+                  splashSpinner.startAnimating()
+                  authenticate()
+              }
+
+              // ---------- شاشة انقطاع الإنترنت ----------
+              func setupErrorView() {
+                  errorView.backgroundColor = .white
+                  errorView.isHidden = true
+                  errorView.translatesAutoresizingMaskIntoConstraints = false
+                  view.addSubview(errorView)
+                  NSLayoutConstraint.activate([
+                      errorView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                      errorView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      errorView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      errorView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+
+                  let label = UILabel()
+                  label.text = "لا يوجد اتصال بالإنترنت\nتأكد من الشبكة ثم أعد المحاولة"
+                  label.numberOfLines = 0
+                  label.textAlignment = .center
+                  label.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+                  label.textColor = storeGreen
+
+                  let button = UIButton(type: .system)
+                  button.setTitle("إعادة المحاولة", for: .normal)
+                  button.setTitleColor(.white, for: .normal)
+                  button.backgroundColor = storeGreen
+                  button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .bold)
+                  button.layer.cornerRadius = 12
+                  button.translatesAutoresizingMaskIntoConstraints = false
+                  button.widthAnchor.constraint(equalToConstant: 180).isActive = true
+                  button.heightAnchor.constraint(equalToConstant: 46).isActive = true
+                  button.addTarget(self, action: #selector(reloadPage), for: .touchUpInside)
+
+                  let stack = UIStackView(arrangedSubviews: [label, button])
+                  stack.axis = .vertical
+                  stack.alignment = .center
+                  stack.spacing = 20
+                  stack.translatesAutoresizingMaskIntoConstraints = false
+                  errorView.addSubview(stack)
+                  NSLayoutConstraint.activate([
+                      stack.centerXAnchor.constraint(equalTo: errorView.centerXAnchor),
+                      stack.centerYAnchor.constraint(equalTo: errorView.centerYAnchor),
+                      stack.leadingAnchor.constraint(greaterThanOrEqualTo: errorView.leadingAnchor, constant: 24),
+                      stack.trailingAnchor.constraint(lessThanOrEqualTo: errorView.trailingAnchor, constant: -24)
+                  ])
+              }
+
+              @objc func reloadPage() {
+                  errorView.isHidden = true
+                  if webView.url == nil {
+                      if let url = URL(string: adminURL) { webView.load(URLRequest(url: url)) }
+                  } else {
+                      webView.reload()
+                  }
+              }
+
+              func handleLoadError(_ error: Error) {
+                  webView.scrollView.refreshControl?.endRefreshing()
+                  if (error as NSError).code == NSURLErrorCancelled { return }
+                  errorView.isHidden = false
+                  pageReady = true
+                  tryHideSplash()
+              }
+
+              func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+                  handleLoadError(error)
+              }
+
+              func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+                  handleLoadError(error)
+              }
+
               func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+                  errorView.isHidden = true
+                  webView.scrollView.refreshControl?.endRefreshing()
+                  pageReady = true
+                  tryHideSplash()
+
                   let script = """
                   var meta = document.querySelector('meta[name=viewport]');
                   if (!meta) {
@@ -145,6 +376,8 @@ jobs:
             -framework UIKit \
             -framework WebKit \
             -framework Foundation \
+            -framework AVFoundation \
+            -framework LocalAuthentication \
             -o build/Payload/AlbsamApp.app/AlbsamApp
 
           chmod +x build/Payload/AlbsamApp.app/AlbsamApp
@@ -168,9 +401,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>AlbsamStore</string>
               <key>CFBundleVersion</key>
-              <string>1.2</string>
+              <string>1.3</string>
               <key>CFBundleShortVersionString</key>
-              <string>1.2</string>
+              <string>1.3</string>
               <key>MinimumOSVersion</key>
               <string>15.0</string>
               <key>CFBundlePackageType</key>
@@ -208,11 +441,12 @@ jobs:
                       </array>
                   </dict>
               </dict>
-              <key>NSAppTransportSecurity</key>
-              <dict>
-                  <key>NSAllowsArbitraryLoads</key>
-                  <true/>
-              </dict>
+              <key>NSCameraUsageDescription</key>
+              <string>لالتقاط صور المنتجات وإضافتها إلى المتجر</string>
+              <key>NSPhotoLibraryUsageDescription</key>
+              <string>لاختيار صور المنتجات من الاستوديو</string>
+              <key>NSFaceIDUsageDescription</key>
+              <string>لحماية لوحة الإدارة بقفل الجوال</string>
           </dict>
           </plist>
           EOF
