@@ -1754,7 +1754,6 @@
                         <a href="tel:${esc(o.phone)}" class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-xs flex-shrink-0" title="اتصال"><i class="fa-solid fa-phone"></i></a>
                         <a href="https://wa.me/${esc(wa)}?text=${waText}" target="_blank" rel="noopener" class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm flex-shrink-0" title="رسالة واتساب جاهزة"><i class="fa-brands fa-whatsapp"></i></a>
                         <button onclick="openInvoice(${o.id})" class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xs cursor-pointer flex-shrink-0" title="فاتورة"><i class="fa-solid fa-file-invoice"></i></button>
-                        <button onclick="openLabel(${o.id})" class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xs cursor-pointer flex-shrink-0" title="ملصق الشحن"><i class="fa-solid fa-tag"></i></button>
                         <button onclick="toggleBlack(${o.id})" class="w-9 h-9 rounded-xl ${black ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center text-xs cursor-pointer flex-shrink-0" title="القائمة السوداء"><i class="fa-solid fa-ban"></i></button>
                         <button onclick="xEditOrder(${o.id})" class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xs cursor-pointer flex-shrink-0" title="تعديل الطلب"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="deleteOrder(${o.id})" class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xs cursor-pointer flex-shrink-0" title="حذف"><i class="fa-solid fa-trash"></i></button>
@@ -1837,7 +1836,11 @@
                     <div style="display:flex;justify-content:space-between"><span>التوصيل</span><span>${Number(o.shipping) > 0 ? formatPrice(o.shipping) : 'مجاني'}</span></div>
                     <div style="display:flex;justify-content:space-between;font-weight:900;font-size:15px;color:#0a3622;border-top:2px solid #0a3622;margin-top:6px;padding-top:6px"><span>الإجمالي</span><span>${formatPrice(o.total)}</span></div>
                 </div>
-                <div style="text-align:center;margin-top:16px;color:#6b7280;font-size:11px">شكراً لتسوقكم من مجمع البسام 🌹</div>
+                <div style="text-align:center;margin-top:14px">
+                    <div dir="ltr" style="font-weight:900;letter-spacing:3px;font-size:12px;margin-bottom:4px">#${no}</div>
+                    <svg class="x-bc" data-code="${no}" style="display:inline-block"></svg>
+                </div>
+                <div style="text-align:center;margin-top:10px;color:#6b7280;font-size:11px">شكراً لتسوقكم من مجمع البسام 🌹</div>
             </div>`;
         }
 
@@ -1849,6 +1852,7 @@
             document.getElementById('invoice-box').classList.remove('hidden');
             document.getElementById('invoice-img').classList.add('hidden');
             document.getElementById('invoice-modal').classList.remove('hidden');
+            if (typeof xDrawBarcodes === 'function') xDrawBarcodes();
         }
         function closeInvoice() { document.getElementById('invoice-modal').classList.add('hidden'); }
 
@@ -2770,7 +2774,7 @@
                 <div style="font-weight:700">${esc(o.address || '')}</div>
                 <div style="margin-top:8px;border-top:1px solid #999;padding-top:6px;font-size:12px">${items.map(i => esc(i.name) + (i.opts ? ' (' + esc(String(i.opts).replace(/^[^:：]*[:：]\s*/, '')) + ')' : '') + ' ×' + esc(i.quantity)).join(' ، ')}</div>
                 <div style="margin-top:8px;background:#000;color:#fff;border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;font-weight:900;font-size:16px"><span>المبلغ المطلوب</span><span>${formatPrice(o.total)}</span></div>
-                ${o.trackCode ? `<div dir="ltr" style="text-align:center;margin-top:8px;font-weight:900;letter-spacing:3px">${esc(o.trackCode)}</div>` : ''}
+                <div dir="ltr" style="text-align:center;margin-top:8px;font-weight:900;letter-spacing:3px">#${no}</div>
             </div>`;
         }
         function openLabel(id) {
@@ -2886,7 +2890,7 @@ function xPrintLabels() {
     const list = orders.filter(o => xSel.has(o.id));
     if (!list.length) { showToast('حدد طلباً واحداً على الأقل'); return; }
     invoiceOrder = list[0];
-    xe('invoice-box').innerHTML = list.map(o => `<div style="margin-bottom:14px">${buildLabelHtml(o)}</div>`).join('');
+    xe('invoice-box').innerHTML = list.map(o => `<div style="margin-bottom:14px">${buildInvoiceHtml(o)}</div>`).join('');
     xe('invoice-box').classList.remove('hidden'); xe('invoice-img').classList.add('hidden');
     xe('invoice-modal').classList.remove('hidden');
 }
