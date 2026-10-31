@@ -732,7 +732,7 @@ jobs:
                       settingsButton.widthAnchor.constraint(equalToConstant: 44),
                       settingsButton.heightAnchor.constraint(equalToConstant: 44),
                       settingsButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
-                      settingsButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -14)
+                      settingsButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -92)
                   ])
               }
 
