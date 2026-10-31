@@ -1,1 +1,227 @@
+name: Build iOS App
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compile Direct IPA with Fullscreen Fix
+        run: |
+          mkdir -p build/Payload/AlbsamApp.app
+
+          cat << 'EOF' > main.swift
+          import UIKit
+          import WebKit
+
+          class AppDelegate: UIResponder, UIApplicationDelegate {
+              var window: UIWindow?
+              func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  let window = UIWindow(frame: UIScreen.main.bounds)
+                  window.rootViewController = WebViewController()
+                  window.makeKeyAndVisible()
+                  self.window = window
+                  return true
+              }
+          }
+
+          class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
+              var webView: WKWebView!
+              override func viewDidLoad() {
+                  super.viewDidLoad()
+                  view.backgroundColor = .white
+
+                  let config = WKWebViewConfiguration()
+                  config.allowsInlineMediaPlayback = true
+
+                  webView = WKWebView(frame: .zero, configuration: config)
+                  webView.navigationDelegate = self
+                  webView.uiDelegate = self
+                  webView.translatesAutoresizingMaskIntoConstraints = false
+                  webView.scrollView.isScrollEnabled = true
+                  webView.scrollView.bounces = true
+
+                  view.addSubview(webView)
+
+                  NSLayoutConstraint.activate([
+                      webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                      webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+
+                  if let url = URL(string: "https://bsamjasm.github.io/albsam_store/admin.html") {
+                      webView.load(URLRequest(url: url))
+                  }
+              }
+
+              func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+                  let script = """
+                  var meta = document.querySelector('meta[name=viewport]');
+                  if (!meta) {
+                      meta = document.createElement('meta');
+                      meta.name = 'viewport';
+                      document.getElementsByTagName('head')[0].appendChild(meta);
+                  }
+                  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+
+                  var style = document.createElement('style');
+                  style.innerHTML = 'header { position: relative !important; top: 0 !important; width: 100% !important; } body { width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }';
+                  document.head.appendChild(style);
+                  """
+                  webView.evaluateJavaScript(script, completionHandler: nil)
+              }
+
+              // فتح روابط الاتصال والواتساب في التطبيقات الخارجية
+              func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+                  if let url = navigationAction.request.url {
+                      let scheme = url.scheme?.lowercased() ?? ""
+                      let host = url.host?.lowercased() ?? ""
+                      if ["tel", "mailto", "whatsapp", "sms"].contains(scheme) || host == "wa.me" || host == "api.whatsapp.com" {
+                          UIApplication.shared.open(url)
+                          decisionHandler(.cancel)
+                          return
+                      }
+                  }
+                  decisionHandler(.allow)
+              }
+
+              // الروابط التي تُفتح في نافذة جديدة (target=_blank) تُفتح خارج التطبيق
+              func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+                  if let url = navigationAction.request.url {
+                      UIApplication.shared.open(url)
+                  }
+                  return nil
+              }
+
+              func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+                  let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                  alert.addAction(UIAlertAction(title: "حسناً", style: .default) { _ in completionHandler() })
+                  present(alert, animated: true)
+              }
+
+              func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+                  let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                  alert.addAction(UIAlertAction(title: "نعم", style: .default) { _ in completionHandler(true) })
+                  alert.addAction(UIAlertAction(title: "إلغاء", style: .cancel) { _ in completionHandler(false) })
+                  present(alert, animated: true)
+              }
+          }
+
+          UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
+          EOF
+
+          cat << 'EOF' > LaunchScreen.storyboard
+          <?xml version="1.0" encoding="UTF-8"?>
+          <document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21507" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+              <scenes>
+                  <scene sceneID="EHf-IW-A2E">
+                      <objects>
+                          <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                              <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                                  <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                                  <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                  <color key="backgroundColor" red="0.04" green="0.21" blue="0.13" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                              </view>
+                          </viewController>
+                          <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                      </objects>
+                  </scene>
+              </scenes>
+          </document>
+          EOF
+
+          xcrun ibtool --compile build/Payload/AlbsamApp.app/LaunchScreen.storyboardc LaunchScreen.storyboard --target-device iphone --target-device ipad --minimum-deployment-target 15.0 --errors --warnings
+
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun --sdk iphoneos swiftc main.swift \
+            -target arm64-apple-ios15.0 \
+            -sdk "$SDK_PATH" \
+            -framework UIKit \
+            -framework WebKit \
+            -framework Foundation \
+            -o build/Payload/AlbsamApp.app/AlbsamApp
+
+          chmod +x build/Payload/AlbsamApp.app/AlbsamApp
+
+          if [ -f "لوكو.png" ]; then
+            sips -s format png -z 120 120 "لوكو.png" --out build/Payload/AlbsamApp.app/AppIcon60x60@2x.png || true
+            sips -s format png -z 180 180 "لوكو.png" --out build/Payload/AlbsamApp.app/AppIcon60x60@3x.png || true
+          fi
+
+          cat << 'EOF' > build/Payload/AlbsamApp.app/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>AlbsamApp</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.bsamjasm.albsamstore</string>
+              <key>CFBundleName</key>
+              <string>AlbsamStore</string>
+              <key>CFBundleDisplayName</key>
+              <string>AlbsamStore</string>
+              <key>CFBundleVersion</key>
+              <string>1.2</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.2</string>
+              <key>MinimumOSVersion</key>
+              <string>15.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>UILaunchStoryboardName</key>
+              <string>LaunchScreen</string>
+              <key>UIDeviceFamily</key>
+              <array>
+                  <integer>1</integer>
+                  <integer>2</integer>
+              </array>
+              <key>UIRequiredDeviceCapabilities</key>
+              <array>
+                  <string>arm64</string>
+              </array>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+              </array>
+              <key>UISupportedInterfaceOrientations~ipad</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+                  <string>UIInterfaceOrientationLandscapeLeft</string>
+                  <string>UIInterfaceOrientationLandscapeRight</string>
+              </array>
+              <key>CFBundleIcons</key>
+              <dict>
+                  <key>CFBundlePrimaryIcon</key>
+                  <dict>
+                      <key>CFBundleIconFiles</key>
+                      <array>
+                          <string>AppIcon60x60</string>
+                      </array>
+                  </dict>
+              </dict>
+              <key>NSAppTransportSecurity</key>
+              <dict>
+                  <key>NSAllowsArbitraryLoads</key>
+                  <true/>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+
+          codesign --force --deep --sign - build/Payload/AlbsamApp.app
+          cd build && zip -r app.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ipa
+          path: build/app.ipa
