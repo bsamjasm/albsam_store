@@ -366,6 +366,62 @@ jobs:
               }
           }
 
+          class ScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+              var onCode: ((String) -> Void)?
+              let session = AVCaptureSession()
+              var preview: AVCaptureVideoPreviewLayer?
+              var done = false
+              override func viewDidLoad() {
+                  super.viewDidLoad()
+                  view.backgroundColor = .black
+                  guard let dev = AVCaptureDevice.default(for: .video), let input = try? AVCaptureDeviceInput(device: dev), session.canAddInput(input) else {
+                      DispatchQueue.main.async { self.dismiss(animated: true) }
+                      return
+                  }
+                  session.addInput(input)
+                  let out = AVCaptureMetadataOutput()
+                  if session.canAddOutput(out) {
+                      session.addOutput(out)
+                      out.setMetadataObjectsDelegate(self, queue: .main)
+                      out.metadataObjectTypes = [.qr, .code128, .code39, .code93, .ean13, .ean8, .upce, .pdf417, .dataMatrix]
+                  }
+                  let layer = AVCaptureVideoPreviewLayer(session: session)
+                  layer.videoGravity = .resizeAspectFill
+                  view.layer.addSublayer(layer)
+                  preview = layer
+                  let close = UIButton(type: .system)
+                  close.setTitle("إغلاق", for: .normal)
+                  close.setTitleColor(.white, for: .normal)
+                  close.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+                  close.layer.cornerRadius = 18
+                  close.translatesAutoresizingMaskIntoConstraints = false
+                  close.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+                  view.addSubview(close)
+                  NSLayoutConstraint.activate([
+                      close.widthAnchor.constraint(equalToConstant: 80),
+                      close.heightAnchor.constraint(equalToConstant: 36),
+                      close.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                      close.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24)
+                  ])
+                  DispatchQueue.global(qos: .userInitiated).async { self.session.startRunning() }
+              }
+              override func viewDidLayoutSubviews() {
+                  super.viewDidLayoutSubviews()
+                  preview?.frame = view.bounds
+              }
+              @objc func closeTapped() {
+                  session.stopRunning()
+                  dismiss(animated: true)
+              }
+              func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+                  guard !done, let obj = metadataObjects.first as? AVMetadataMachineReadableCodeObject, let str = obj.stringValue else { return }
+                  done = true
+                  UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                  session.stopRunning()
+                  dismiss(animated: true) { self.onCode?(str) }
+              }
+          }
+
           class AppDelegate: UIResponder, UIApplicationDelegate {
               var window: UIWindow?
               func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -511,6 +567,21 @@ jobs:
                           return
                       }
                       Auth.verify(reason: reason) { ok in self.replyAuth(id, ok) }
+                  case "share":
+                      if let s = body["data"] as? String, let b64 = s.components(separatedBy: ",").last, let d = Data(base64Encoded: b64), let img = UIImage(data: d) {
+                          let av = UIActivityViewController(activityItems: [img], applicationActivities: nil)
+                          av.popoverPresentationController?.sourceView = view
+                          av.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+                          present(av, animated: true)
+                      }
+                  case "scan":
+                      let vc = ScannerViewController()
+                      vc.modalPresentationStyle = .fullScreen
+                      vc.onCode = { [weak self] code in
+                          let e = code.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+                          self?.webView.evaluateJavaScript("xScanResult('\(e)')", completionHandler: nil)
+                      }
+                      present(vc, animated: true)
                   default:
                       break
                   }
@@ -550,6 +621,7 @@ jobs:
                   if t == "orders" { js = "showTab('orders')" }
                   else if t == "newProduct" { js = "showTab('products');openAddModal()" }
                   else if t == "stats" { js = "showTab('stats')" }
+                  else if t == "manualOrder" { js = "showTab('orders');xManualOrder()" }
                   if !js.isEmpty { webView.evaluateJavaScript(js, completionHandler: nil) }
               }
 
@@ -1086,6 +1158,14 @@ jobs:
                       <string>منتج جديد</string>
                       <key>UIApplicationShortcutItemIconSymbolName</key>
                       <string>plus.circle</string>
+                  </dict>
+                  <dict>
+                      <key>UIApplicationShortcutItemType</key>
+                      <string>manualOrder</string>
+                      <key>UIApplicationShortcutItemTitle</key>
+                      <string>طلب يدوي</string>
+                      <key>UIApplicationShortcutItemIconSymbolName</key>
+                      <string>square.and.pencil</string>
                   </dict>
                   <dict>
                       <key>UIApplicationShortcutItemType</key>
