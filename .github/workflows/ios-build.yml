@@ -11,7 +11,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Compile Direct IPA with Ultimate Fullscreen & Responsive Fix
+      - name: Compile Direct IPA with Fullscreen Fix
         run: |
           mkdir -p build/Payload/AlbsamApp.app
 
@@ -35,42 +35,32 @@ jobs:
               override func viewDidLoad() {
                   super.viewDidLoad()
                   view.backgroundColor = .white
-                  
+
                   let config = WKWebViewConfiguration()
                   config.allowsInlineMediaPlayback = true
-                  
-                  // إجبار محرك الويب على استخدام وضع العرض المحمول للموبايل
-                  let preferences = WKPreferences()
-                  preferences.javaScriptEnabled = true
-                  config.preferences = preferences
-                  
+
                   webView = WKWebView(frame: .zero, configuration: config)
                   webView.navigationDelegate = self
                   webView.uiDelegate = self
                   webView.translatesAutoresizingMaskIntoConstraints = false
-                  
                   webView.scrollView.isScrollEnabled = true
                   webView.scrollView.bounces = true
-                  
+
                   view.addSubview(webView)
-                  
+
                   NSLayoutConstraint.activate([
                       webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
                       webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
                       webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
                   ])
-                  
+
                   if let url = URL(string: "https://bsamjasm.github.io/albsam_store/admin.html") {
-                      var request = URLRequest(url: url)
-                      // خداع المتصفح لطلب النسخة المحمولة وتجنب الانضغاط
-                      request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
-                      webView.load(request)
+                      webView.load(URLRequest(url: url))
                   }
               }
 
               func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-                  // حقن سكريبت نهائي لإلغاء أي تثبيت للهيدر وضمان عرض الواجهة بعرض الشاشة الكامل
                   let script = """
                   var meta = document.querySelector('meta[name=viewport]');
                   if (!meta) {
@@ -79,7 +69,7 @@ jobs:
                       document.getElementsByTagName('head')[0].appendChild(meta);
                   }
                   meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-                  
+
                   var style = document.createElement('style');
                   style.innerHTML = 'header { position: relative !important; top: 0 !important; width: 100% !important; } body { width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }';
                   document.head.appendChild(style);
@@ -143,6 +133,8 @@ jobs:
               <string>APPL</string>
               <key>LSRequiresIPhoneOS</key>
               <true/>
+              <key>UILaunchScreen</key>
+              <dict/>
               <key>UIDeviceFamily</key>
               <array>
                   <integer>1</integer>
@@ -155,6 +147,12 @@ jobs:
               <key>UISupportedInterfaceOrientations</key>
               <array>
                   <string>UIInterfaceOrientationPortrait</string>
+              </array>
+              <key>UISupportedInterfaceOrientations~ipad</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+                  <string>UIInterfaceOrientationLandscapeLeft</string>
+                  <string>UIInterfaceOrientationLandscapeRight</string>
               </array>
               <key>CFBundleIcons</key>
               <dict>
