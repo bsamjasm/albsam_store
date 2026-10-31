@@ -11,7 +11,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Compile Direct IPA with Fullscreen Viewport
+      - name: Compile Direct IPA with True Fullscreen Viewport
         run: |
           mkdir -p build/Payload/AlbsamApp.app
 
@@ -44,12 +44,13 @@ jobs:
                   webView.uiDelegate = self
                   webView.translatesAutoresizingMaskIntoConstraints = false
                   
-                  // إجبار محتوى الصفحة على التمدد بملء شاشة الآيفون ومنع الانكماش
+                  // تعطيل الارتداد والسماح بالتمرير بملء الشاشة
                   webView.scrollView.isScrollEnabled = true
-                  webView.scrollView.bounces = true
+                  webView.scrollView.bounces = false
                   
                   view.addSubview(webView)
                   
+                  // تثبيت الـ WebView ليمتد على كامل حواف الشاشة (بما فيها الـ Safe Area لضمان الملء التام)
                   NSLayoutConstraint.activate([
                       webView.topAnchor.constraint(equalTo: view.topAnchor),
                       webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -64,9 +65,9 @@ jobs:
               }
 
               func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-                  // حقن كود برمجياً لتوسيع عناصر الصفحة وتناسبها مع عرض أيفون 11 فور اكتمال التحميل
-                  let js = "var meta = document.querySelector('meta[name=viewport]'); if (!meta) { meta = document.createElement('meta'); meta.name = 'viewport'; document.getElementsByTagName('head')[0].appendChild(meta); } meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';"
-                  webView.evaluateJavaScript(js, completionHandler: nil)
+                  // حقن إعدادات العرض لفرض التمدد الكامل وعدم الانضغاط على الشاشة
+                  let script = "var meta = document.querySelector('meta[name=viewport]'); if (!meta) { meta = document.createElement('meta'); meta.name = 'viewport'; document.getElementsByTagName('head')[0].appendChild(meta); } meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';"
+                  webView.evaluateJavaScript(script, completionHandler: nil)
               }
 
               func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
@@ -130,14 +131,14 @@ jobs:
                   <integer>1</integer>
                   <integer>2</integer>
               </array>
-                  <key>UIRequiredDeviceCapabilities</key>
-                  <array>
-                      <string>arm64</string>
-                  </array>
-                  <key>UISupportedInterfaceOrientations</key>
-                  <array>
-                      <string>UIInterfaceOrientationPortrait</string>
-                  </array>
+              <key>UIRequiredDeviceCapabilities</key>
+              <array>
+                  <string>arm64</string>
+              </array>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+              </array>
               <key>CFBundleIcons</key>
               <dict>
                   <key>CFBundlePrimaryIcon</key>
