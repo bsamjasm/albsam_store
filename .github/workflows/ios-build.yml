@@ -564,9 +564,16 @@ jobs:
               <key>CFBundleIdentifier</key>
               <string>com.bsamjasm.albsamshop</string>
               <key>CFBundleName</key>
-              <string>AlbsamShop</string>
+              <string>Albsam</string>
               <key>CFBundleDisplayName</key>
-              <string>مجمع البسام</string>
+              <string>Albsam</string>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>en</string>
+              <key>CFBundleLocalizations</key>
+              <array>
+                  <string>en</string>
+                  <string>ar</string>
+              </array>
               <key>CFBundleVersion</key>
               <string>1.0</string>
               <key>CFBundleShortVersionString</key>
@@ -613,6 +620,12 @@ jobs:
           </dict>
           </plist>
           EOF
+
+          # الاسم العربي يظهر على الشاشة عبر ملفات الترجمة (Info.plist يبقى بحروف إنجليزية حتى يقبله AltStore)
+          for L in en ar; do
+            mkdir -p build/Payload/AlbsamShop.app/$L.lproj
+            printf '"CFBundleDisplayName" = "مجمع البسام";\n' > build/Payload/AlbsamShop.app/$L.lproj/InfoPlist.strings
+          done
 
           codesign --force --deep --sign - build/Payload/AlbsamShop.app
           cd build && zip -r store.ipa Payload
