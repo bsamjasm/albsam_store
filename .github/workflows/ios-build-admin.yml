@@ -76,8 +76,8 @@ jobs:
           }
 
           func appLogoImage() -> UIImage? {
+              if let lp = Bundle.main.path(forResource: "logo", ofType: "png"), let bi = UIImage(contentsOfFile: lp) { return bi }
               if let d = try? Data(contentsOf: appLogoFile()), let i = UIImage(data: d) { return i }
-              if let lp = Bundle.main.path(forResource: "logo", ofType: "png") { return UIImage(contentsOfFile: lp) }
               return nil
           }
 
@@ -1136,7 +1136,7 @@ jobs:
             if [ -f "$f" ]; then ICON="$f"; break; fi
           done
           if [ -n "$ICON" ]; then
-            cp "$ICON" build/Payload/AlbsamApp.app/logo.png || true
+            sips -s format png -Z 348 "$ICON" --out build/Payload/AlbsamApp.app/logo.png || true
             sips -s format png -z 120 120 "$ICON" --out build/Payload/AlbsamApp.app/AppIcon60x60@2x.png || true
             sips -s format png -z 180 180 "$ICON" --out build/Payload/AlbsamApp.app/AppIcon60x60@3x.png || true
           fi
