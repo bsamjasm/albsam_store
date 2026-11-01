@@ -72,7 +72,7 @@
 
     <!-- شاشة الترحيب: تبقى حتى تُحمَّل المنتجات -->
     <div id="splash" onclick="hideSplash()" class="fixed inset-0 z-[100] bg-store-dark flex flex-col items-center justify-center gap-4 text-white">
-        <span class="splash-logo w-20 h-20 rounded-2xl bg-amber-400 text-store-dark font-black text-4xl flex items-center justify-center shadow-xl">ب</span>
+        <img class="x-logo splash-logo w-24 h-24 rounded-3xl shadow-xl object-cover" src="apple-touch-icon.png" alt="مجمع البسام">
         <span class="text-2xl font-black tracking-tight">مجمع البسام</span>
         <span class="w-8 h-8 border-4 border-white/20 border-t-amber-400 rounded-full animate-spin"></span>
     </div>
@@ -95,7 +95,7 @@
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20">
                 <a href="#" class="flex items-center gap-2">
-                    <span class="w-10 h-10 rounded-xl bg-amber-400 text-store-dark font-black text-xl flex items-center justify-center shadow-md">ب</span>
+                    <img class="x-logo w-10 h-10 rounded-xl shadow-md object-cover" src="apple-touch-icon.png" alt="مجمع البسام">
                     <span class="text-lg sm:text-xl font-black tracking-tight text-white whitespace-nowrap">مجمع البسام</span>
                 </a>
 
@@ -1986,6 +1986,12 @@ shareProduct = async function (id) {
     else window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank');
 };
 
+</script>
+<script>
+// شعار المتجر: يتزامن مع ما تحدده في لوحة الأدمن
+function applyLogo(u) { if (!u) return; document.querySelectorAll('.x-logo').forEach(i => { i.src = u; }); }
+try { applyLogo(localStorage.getItem('albsam_logo')); } catch (e) { }
+db.ref('settings/logoImage').on('value', s => { const u = s.val(); try { if (u) localStorage.setItem('albsam_logo', u); else localStorage.removeItem('albsam_logo'); } catch (e) { } applyLogo(u || 'apple-touch-icon.png'); });
 </script>
 </body>
 </html>
