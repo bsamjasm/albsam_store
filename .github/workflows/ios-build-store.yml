@@ -1,0 +1,717 @@
+name: Build iOS Store App
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compile Store IPA
+        run: |
+          mkdir -p build/Payload/AlbsamShop.app
+
+          cat << 'EOF' > main.swift
+          import UIKit
+          import WebKit
+
+          // ===== إعدادات ثابتة =====
+          let splashSeconds: TimeInterval = 2.0  // مدة شاشة الترحيب
+          let storeURL = "https://bsamjasm.github.io/albsam_store/"
+
+          let storeGreen = UIColor(red: 0.04, green: 0.21, blue: 0.13, alpha: 1)
+          let storeGreenLight = UIColor(red: 0.08, green: 0.34, blue: 0.21, alpha: 1)
+          let storeGreenDark = UIColor(red: 0.02, green: 0.11, blue: 0.07, alpha: 1)
+          let storeAmber = UIColor(red: 0.984, green: 0.749, blue: 0.141, alpha: 1)
+
+          func makeDot(diameter: CGFloat) -> CGImage? {
+              let size = CGSize(width: diameter, height: diameter)
+              let renderer = UIGraphicsImageRenderer(size: size)
+              let img = renderer.image { _ in
+                  UIColor.white.setFill()
+                  UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+              }
+              return img.cgImage
+          }
+
+          // ===== شاشة الترحيب: نفس شاشة الموقع (نقاط + بقع ملوّنة + أيقونات صاعدة) =====
+          let splashBase = UIColor(red: 0.027, green: 0.165, blue: 0.102, alpha: 1)   // #072a1a
+          let amber300 = UIColor(red: 0.988, green: 0.827, blue: 0.302, alpha: 1)     // #fcd34d
+
+          // خلفية منقّطة (نقطة بيضاء خافتة كل 24 بكسل)
+          func dotTile() -> UIColor {
+              let size = CGSize(width: 24, height: 24)
+              let img = UIGraphicsImageRenderer(size: size).image { ctx in
+                  splashBase.setFill()
+                  ctx.fill(CGRect(origin: .zero, size: size))
+                  UIColor.white.withAlphaComponent(0.08).setFill()
+                  UIBezierPath(ovalIn: CGRect(x: 11, y: 11, width: 2, height: 2)).fill()
+              }
+              return UIColor(patternImage: img)
+          }
+
+          // نص بتدرّج لامع متحرك (أبيض ↔ ذهبي فاتح) مثل عنوان الموقع
+          class ShineLabel: UIView {
+              let grad = CAGradientLayer()
+              init(text: String, font: UIFont) {
+                  let label = UILabel()
+                  label.text = text
+                  label.font = font
+                  label.textAlignment = .center
+                  let sz = label.intrinsicContentSize
+                  super.init(frame: CGRect(x: 0, y: 0, width: ceil(sz.width) + 8, height: ceil(sz.height) + 8))
+                  label.frame = bounds
+                  mask = label
+                  grad.frame = CGRect(x: 0, y: 0, width: bounds.width * 2, height: bounds.height)
+                  let w = UIColor.white.cgColor
+                  let a = UIColor(red: 0.992, green: 0.902, blue: 0.541, alpha: 1).cgColor
+                  grad.colors = [w, a, w, a, w]
+                  grad.locations = [0, 0.25, 0.5, 0.75, 1]
+                  grad.startPoint = CGPoint(x: 0, y: 0.5)
+                  grad.endPoint = CGPoint(x: 1, y: 0.5)
+                  layer.addSublayer(grad)
+                  let slide = CABasicAnimation(keyPath: "position.x")
+                  slide.fromValue = bounds.width
+                  slide.toValue = 0
+                  slide.duration = 6
+                  slide.repeatCount = .infinity
+                  slide.timingFunction = CAMediaTimingFunction(name: .linear)
+                  grad.add(slide, forKey: "slide")
+              }
+              required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+              override var intrinsicContentSize: CGSize { return bounds.size }
+          }
+
+          // دوّار صغير مثل دوّار الموقع (حلقة خافتة + قوس ذهبي)
+          class SiteSpinner: UIView {
+              override init(frame: CGRect) {
+                  super.init(frame: frame)
+                  let center = CGPoint(x: 16, y: 16)
+                  let ringPath = UIBezierPath(arcCenter: center, radius: 14, startAngle: -.pi / 2, endAngle: 1.5 * .pi, clockwise: true)
+                  let track = CAShapeLayer()
+                  track.path = ringPath.cgPath
+                  track.fillColor = UIColor.clear.cgColor
+                  track.strokeColor = UIColor.white.withAlphaComponent(0.2).cgColor
+                  track.lineWidth = 4
+                  let arcPath = UIBezierPath(arcCenter: center, radius: 14, startAngle: -.pi * 0.75, endAngle: -.pi * 0.25, clockwise: true)
+                  let arc = CAShapeLayer()
+                  arc.path = arcPath.cgPath
+                  arc.fillColor = UIColor.clear.cgColor
+                  arc.strokeColor = storeAmber.cgColor
+                  arc.lineWidth = 4
+                  layer.addSublayer(track)
+                  layer.addSublayer(arc)
+                  let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+                  spin.fromValue = 0
+                  spin.toValue = 2 * Double.pi
+                  spin.duration = 1
+                  spin.repeatCount = .infinity
+                  spin.timingFunction = CAMediaTimingFunction(name: .linear)
+                  layer.add(spin, forKey: "spin")
+              }
+              required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+              override var intrinsicContentSize: CGSize { return CGSize(width: 32, height: 32) }
+          }
+
+          class SplashView: UIView {
+              let bg = UIView()
+              var built = false
+
+              override init(frame: CGRect) {
+                  super.init(frame: frame)
+                  setup()
+              }
+              required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+              func setup() {
+                  backgroundColor = dotTile()
+                  clipsToBounds = true
+
+                  bg.isUserInteractionEnabled = false
+                  bg.frame = bounds
+                  bg.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                  addSubview(bg)
+
+                  // الشعار
+                  let logo = UILabel()
+                  logo.text = "ب"
+                  logo.font = UIFont.systemFont(ofSize: 36, weight: .black)
+                  logo.textColor = storeGreen
+                  logo.textAlignment = .center
+                  logo.backgroundColor = storeAmber
+                  logo.layer.cornerRadius = 16
+                  logo.layer.masksToBounds = true
+                  logo.translatesAutoresizingMaskIntoConstraints = false
+                  logo.widthAnchor.constraint(equalToConstant: 80).isActive = true
+                  logo.heightAnchor.constraint(equalToConstant: 80).isActive = true
+                  let pulse = CABasicAnimation(keyPath: "transform.scale")
+                  pulse.fromValue = 1.0
+                  pulse.toValue = 1.08
+                  pulse.duration = 0.7
+                  pulse.autoreverses = true
+                  pulse.repeatCount = .infinity
+                  pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                  logo.layer.add(pulse, forKey: "pulse")
+
+                  // «أهلاً بكم»
+                  let pillLabel = UILabel()
+                  pillLabel.text = "أهلاً بكم"
+                  pillLabel.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
+                  pillLabel.textColor = amber300
+                  pillLabel.translatesAutoresizingMaskIntoConstraints = false
+                  let pill = UIView()
+                  pill.layer.borderWidth = 1
+                  pill.layer.borderColor = storeAmber.withAlphaComponent(0.4).cgColor
+                  pill.layer.cornerRadius = 13
+                  pill.addSubview(pillLabel)
+                  NSLayoutConstraint.activate([
+                      pillLabel.topAnchor.constraint(equalTo: pill.topAnchor, constant: 4),
+                      pillLabel.bottomAnchor.constraint(equalTo: pill.bottomAnchor, constant: -4),
+                      pillLabel.leadingAnchor.constraint(equalTo: pill.leadingAnchor, constant: 12),
+                      pillLabel.trailingAnchor.constraint(equalTo: pill.trailingAnchor, constant: -12)
+                  ])
+
+                  // العنوان اللامع
+                  let title = ShineLabel(text: "مجمع البسام", font: UIFont.systemFont(ofSize: 24, weight: .black))
+                  let spinner = SiteSpinner()
+
+                  let stack = UIStackView(arrangedSubviews: [logo, pill, title, spinner])
+                  stack.axis = .vertical
+                  stack.alignment = .center
+                  stack.spacing = 16
+                  stack.translatesAutoresizingMaskIntoConstraints = false
+                  addSubview(stack)
+                  NSLayoutConstraint.activate([
+                      stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+                      stack.centerYAnchor.constraint(equalTo: centerYAnchor)
+                  ])
+
+                  // دخول تدريجي للنصوص
+                  pill.alpha = 0
+                  pill.transform = CGAffineTransform(translationX: 0, y: 16)
+                  title.alpha = 0
+                  title.transform = CGAffineTransform(translationX: 0, y: 16)
+                  DispatchQueue.main.async {
+                      UIView.animate(withDuration: 0.7, delay: 0.2, options: .curveEaseOut, animations: {
+                          pill.alpha = 1
+                          pill.transform = .identity
+                      })
+                      UIView.animate(withDuration: 0.7, delay: 0.4, options: .curveEaseOut, animations: {
+                          title.alpha = 1
+                          title.transform = .identity
+                      })
+                  }
+              }
+
+              override func layoutSubviews() {
+                  super.layoutSubviews()
+                  if !built && bounds.width > 0 && bounds.height > 0 {
+                      built = true
+                      buildScene()
+                  }
+              }
+
+              func addBlob(size: CGFloat, color: UIColor, opacity: CGFloat, origin: CGPoint, duration: Double, reverse: Bool) {
+                  let g = CAGradientLayer()
+                  g.type = .radial
+                  g.frame = CGRect(x: origin.x, y: origin.y, width: size, height: size)
+                  g.colors = [color.withAlphaComponent(opacity).cgColor, color.withAlphaComponent(opacity).cgColor, color.withAlphaComponent(0).cgColor]
+                  g.locations = [0, 0.55, 1]
+                  g.startPoint = CGPoint(x: 0.5, y: 0.5)
+                  g.endPoint = CGPoint(x: 1, y: 1)
+                  bg.layer.addSublayer(g)
+                  let a = CATransform3DConcat(CATransform3DMakeScale(1, 1, 1), CATransform3DMakeTranslation(-24, 0, 0))
+                  let b = CATransform3DConcat(CATransform3DMakeScale(1.25, 1.25, 1), CATransform3DMakeTranslation(44, -34, 0))
+                  let drift = CABasicAnimation(keyPath: "transform")
+                  drift.fromValue = NSValue(caTransform3D: reverse ? b : a)
+                  drift.toValue = NSValue(caTransform3D: reverse ? a : b)
+                  drift.duration = duration
+                  drift.autoreverses = true
+                  drift.repeatCount = .infinity
+                  drift.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                  g.add(drift, forKey: "drift")
+              }
+
+              func buildScene() {
+                  let W = bounds.width
+                  let H = bounds.height
+
+                  // البقع الملوّنة الثلاث (أخضر زمردي + ذهبي + نعناعي) بنفس مواقع الموقع
+                  addBlob(size: 340, color: UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 1), opacity: 0.32,
+                          origin: CGPoint(x: W - 260, y: -110), duration: 14, reverse: false)
+                  addBlob(size: 300, color: UIColor(red: 0.980, green: 0.800, blue: 0.082, alpha: 1), opacity: 0.2,
+                          origin: CGPoint(x: -70, y: H - 180), duration: 18, reverse: false)
+                  addBlob(size: 240, color: UIColor(red: 0.204, green: 0.827, blue: 0.600, alpha: 1), opacity: 0.16,
+                          origin: CGPoint(x: W * 0.30, y: H * 0.38), duration: 20, reverse: true)
+
+                  // الأيقونات الذهبية الصاعدة
+                  let names = ["bag.fill", "tag.fill", "box.truck.fill", "gift.fill", "star.fill", "heart.fill"]
+                  let lefts: [CGFloat] = [0.08, 0.24, 0.42, 0.60, 0.76, 0.90]
+                  let sizes: [CGFloat] = [22, 18, 20, 20, 16, 18]
+                  let durs: [Double] = [9, 11, 10, 12, 9, 11]
+                  let delays: [Double] = [-2, -6, -4, -8, -1, -5]
+                  for k in 0..<names.count {
+                      let cfg = UIImage.SymbolConfiguration(pointSize: sizes[k], weight: .regular)
+                      let img = UIImage(systemName: names[k], withConfiguration: cfg) ?? UIImage(systemName: "shippingbox.fill", withConfiguration: cfg)
+                      let iv = UIImageView(image: img)
+                      iv.tintColor = UIColor(red: 0.980, green: 0.800, blue: 0.082, alpha: 0.3)
+                      iv.contentMode = .scaleAspectFit
+                      iv.frame = CGRect(x: lefts[k] * W, y: H + 30 - sizes[k], width: sizes[k], height: sizes[k])
+                      bg.addSubview(iv)
+
+                      let rise = CABasicAnimation(keyPath: "transform")
+                      rise.fromValue = NSValue(caTransform3D: CATransform3DIdentity)
+                      rise.toValue = NSValue(caTransform3D: CATransform3DConcat(CATransform3DMakeRotation(28 * .pi / 180, 0, 0, 1), CATransform3DMakeTranslation(0, -H * 1.05, 0)))
+                      let fade = CAKeyframeAnimation(keyPath: "opacity")
+                      fade.values = [0, 1, 1, 0]
+                      fade.keyTimes = [0, 0.12, 0.88, 1]
+                      let group = CAAnimationGroup()
+                      group.animations = [rise, fade]
+                      group.duration = durs[k]
+                      group.repeatCount = .infinity
+                      group.timingFunction = CAMediaTimingFunction(name: .linear)
+                      group.beginTime = CACurrentMediaTime() + delays[k]
+                      iv.layer.add(group, forKey: "float")
+                  }
+
+                  // لمعة تعبر الشاشة
+                  let sweep = CAGradientLayer()
+                  sweep.frame = CGRect(x: -0.5 * W, y: 0, width: 0.4 * W, height: H)
+                  sweep.colors = [UIColor.clear.cgColor, UIColor.white.withAlphaComponent(0.08).cgColor, UIColor.clear.cgColor]
+                  sweep.startPoint = CGPoint(x: 0, y: 0.45)
+                  sweep.endPoint = CGPoint(x: 1, y: 0.55)
+                  bg.layer.addSublayer(sweep)
+                  let move = CAKeyframeAnimation(keyPath: "position.x")
+                  move.values = [-0.3 * W, 1.4 * W, 1.4 * W]
+                  move.keyTimes = [0, 0.6, 1]
+                  move.duration = 7
+                  move.repeatCount = .infinity
+                  move.timingFunctions = [CAMediaTimingFunction(name: .easeInEaseOut), CAMediaTimingFunction(name: .linear)]
+                  sweep.add(move, forKey: "sweep")
+              }
+          }
+
+          var pendingShortcut: String?
+
+          class WeakHandler: NSObject, WKScriptMessageHandler {
+              weak var target: WKScriptMessageHandler?
+              init(_ t: WKScriptMessageHandler) { target = t }
+              func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+                  target?.userContentController(userContentController, didReceive: message)
+              }
+          }
+
+          class AppDelegate: UIResponder, UIApplicationDelegate {
+              var window: UIWindow?
+              func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  let window = UIWindow(frame: UIScreen.main.bounds)
+                  window.rootViewController = WebViewController()
+                  window.makeKeyAndVisible()
+                  self.window = window
+                  if let item = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem { pendingShortcut = item.type }
+                  return true
+              }
+              func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+                  pendingShortcut = shortcutItem.type
+                  (window?.rootViewController as? WebViewController)?.runShortcut()
+                  completionHandler(true)
+              }
+          }
+
+          class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+              var webView: WKWebView!
+              let splash = SplashView()
+              let errorView = UIView()
+              var splashTimeUp = false
+              var pageReady = false
+              var splashGone = false
+
+              override var preferredStatusBarStyle: UIStatusBarStyle { return .lightContent }
+
+              override func viewDidLoad() {
+                  super.viewDidLoad()
+                  view.backgroundColor = storeGreen
+
+                  let config = WKWebViewConfiguration()
+                  config.allowsInlineMediaPlayback = true
+                  // داخل التطبيق: لا تُظهر دعوة "ثبّت المتجر كتطبيق"
+                  let js = "Object.defineProperty(navigator, 'standalone', { get: function () { return true; } });"
+                  config.userContentController.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+                  config.userContentController.add(WeakHandler(self), name: "native")
+                  let hapticJS = "document.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('button,a');if(t&&window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.native){window.webkit.messageHandlers.native.postMessage({type:'haptic'});}},true);"
+                  config.userContentController.addUserScript(WKUserScript(source: hapticJS, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+
+                  webView = WKWebView(frame: .zero, configuration: config)
+                  webView.navigationDelegate = self
+                  webView.uiDelegate = self
+                  webView.translatesAutoresizingMaskIntoConstraints = false
+                  webView.scrollView.isScrollEnabled = true
+                  webView.scrollView.bounces = true
+
+                  let rc = UIRefreshControl()
+                  rc.tintColor = storeGreen
+                  rc.addTarget(self, action: #selector(reloadPage), for: .valueChanged)
+                  webView.scrollView.refreshControl = rc
+
+                  view.addSubview(webView)
+
+                  NSLayoutConstraint.activate([
+                      webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                      webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+
+                  setupErrorView()
+                  setupSplash()
+
+                  if let url = URL(string: storeURL) {
+                      webView.load(URLRequest(url: url))
+                  }
+
+                  DispatchQueue.main.asyncAfter(deadline: .now() + splashSeconds) {
+                      self.splashTimeUp = true
+                      self.tryHideSplash()
+                  }
+                  // أمان: لا تبقى شاشة الترحيب أكثر من 10 ثوانٍ بسبب بطء الشبكة
+                  DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                      self.pageReady = true
+                      self.tryHideSplash()
+                  }
+              }
+
+              // ---------- شاشة الترحيب (التصميم داخل SplashView) ----------
+              func setupSplash() {
+                  splash.translatesAutoresizingMaskIntoConstraints = false
+                  view.addSubview(splash)
+                  NSLayoutConstraint.activate([
+                      splash.topAnchor.constraint(equalTo: view.topAnchor),
+                      splash.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      splash.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      splash.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+              }
+
+              func tryHideSplash() {
+                  guard !splashGone, splashTimeUp, pageReady else { return }
+                  splashGone = true
+                  UIView.animate(withDuration: 0.5, animations: {
+                      self.splash.alpha = 0
+                      self.splash.transform = CGAffineTransform(scaleX: 1.08, y: 1.08)
+                  }, completion: { _ in
+                      self.splash.removeFromSuperview()
+                  })
+              }
+
+              // ---------- شاشة انقطاع الإنترنت ----------
+              func setupErrorView() {
+                  errorView.backgroundColor = .white
+                  errorView.isHidden = true
+                  errorView.translatesAutoresizingMaskIntoConstraints = false
+                  view.addSubview(errorView)
+                  NSLayoutConstraint.activate([
+                      errorView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                      errorView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      errorView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      errorView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+
+                  let label = UILabel()
+                  label.text = "لا يوجد اتصال بالإنترنت\nتأكد من الشبكة ثم أعد المحاولة"
+                  label.numberOfLines = 0
+                  label.textAlignment = .center
+                  label.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+                  label.textColor = storeGreen
+
+                  let button = UIButton(type: .system)
+                  button.setTitle("إعادة المحاولة", for: .normal)
+                  button.setTitleColor(.white, for: .normal)
+                  button.backgroundColor = storeGreen
+                  button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .bold)
+                  button.layer.cornerRadius = 12
+                  button.translatesAutoresizingMaskIntoConstraints = false
+                  button.widthAnchor.constraint(equalToConstant: 180).isActive = true
+                  button.heightAnchor.constraint(equalToConstant: 46).isActive = true
+                  button.addTarget(self, action: #selector(reloadPage), for: .touchUpInside)
+
+                  let stack = UIStackView(arrangedSubviews: [label, button])
+                  stack.axis = .vertical
+                  stack.alignment = .center
+                  stack.spacing = 20
+                  stack.translatesAutoresizingMaskIntoConstraints = false
+                  errorView.addSubview(stack)
+                  NSLayoutConstraint.activate([
+                      stack.centerXAnchor.constraint(equalTo: errorView.centerXAnchor),
+                      stack.centerYAnchor.constraint(equalTo: errorView.centerYAnchor),
+                      stack.leadingAnchor.constraint(greaterThanOrEqualTo: errorView.leadingAnchor, constant: 24),
+                      stack.trailingAnchor.constraint(lessThanOrEqualTo: errorView.trailingAnchor, constant: -24)
+                  ])
+              }
+
+              @objc func reloadPage() {
+                  errorView.isHidden = true
+                  if webView.url == nil {
+                      if let url = URL(string: storeURL) { webView.load(URLRequest(url: url)) }
+                  } else {
+                      webView.reload()
+                  }
+              }
+
+              func handleLoadError(_ error: Error) {
+                  webView.scrollView.refreshControl?.endRefreshing()
+                  if (error as NSError).code == NSURLErrorCancelled { return }
+                  errorView.isHidden = false
+                  pageReady = true
+                  tryHideSplash()
+              }
+
+              func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+                  handleLoadError(error)
+              }
+
+              func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+                  handleLoadError(error)
+              }
+
+              func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+                  errorView.isHidden = true
+                  webView.scrollView.refreshControl?.endRefreshing()
+                  pageReady = true
+                  tryHideSplash()
+                  runShortcut()
+
+                  let script = """
+                  var meta = document.querySelector('meta[name=viewport]');
+                  if (!meta) {
+                      meta = document.createElement('meta');
+                      meta.name = 'viewport';
+                      document.getElementsByTagName('head')[0].appendChild(meta);
+                  }
+                  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                  """
+                  webView.evaluateJavaScript(script, completionHandler: nil)
+              }
+
+              func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+                  guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+                  switch type {
+                  case "haptic":
+                      UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                  case "share":
+                      if let s = body["data"] as? String, let b64 = s.components(separatedBy: ",").last, let d = Data(base64Encoded: b64), let img = UIImage(data: d) {
+                          var items: [Any] = [img]
+                          if let t = body["text"] as? String, !t.isEmpty { items.append(t) }
+                          let av = UIActivityViewController(activityItems: items, applicationActivities: nil)
+                          av.popoverPresentationController?.sourceView = view
+                          av.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+                          present(av, animated: true)
+                      }
+                  default:
+                      break
+                  }
+              }
+
+              func runShortcut() {
+                  guard pageReady, let t = pendingShortcut else { return }
+                  pendingShortcut = nil
+                  var js = ""
+                  if t == "cart" { js = "toggleCart()" }
+                  else if t == "track" { js = "openTrack()" }
+                  else if t == "search" { js = "var i=document.getElementById('search-input');if(i){i.scrollIntoView({block:'center'});i.focus();}" }
+                  if !js.isEmpty { webView.evaluateJavaScript(js, completionHandler: nil) }
+              }
+
+              // فتح روابط الاتصال والواتساب في التطبيقات الخارجية
+              func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+                  if let url = navigationAction.request.url {
+                      let scheme = url.scheme?.lowercased() ?? ""
+                      let host = url.host?.lowercased() ?? ""
+                      if ["tel", "mailto", "whatsapp", "sms"].contains(scheme) || host == "wa.me" || host == "api.whatsapp.com" {
+                          UIApplication.shared.open(url)
+                          decisionHandler(.cancel)
+                          return
+                      }
+                  }
+                  decisionHandler(.allow)
+              }
+
+              // الروابط التي تُفتح في نافذة جديدة (target=_blank) تُفتح خارج التطبيق
+              func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+                  if let url = navigationAction.request.url {
+                      UIApplication.shared.open(url)
+                  }
+                  return nil
+              }
+
+              func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+                  let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                  alert.addAction(UIAlertAction(title: "حسناً", style: .default) { _ in completionHandler() })
+                  present(alert, animated: true)
+              }
+
+              func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+                  let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                  alert.addAction(UIAlertAction(title: "نعم", style: .default) { _ in completionHandler(true) })
+                  alert.addAction(UIAlertAction(title: "إلغاء", style: .cancel) { _ in completionHandler(false) })
+                  present(alert, animated: true)
+              }
+          }
+
+          UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
+          EOF
+
+          cat << 'EOF' > LaunchScreen.storyboard
+          <?xml version="1.0" encoding="UTF-8"?>
+          <document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21507" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+              <scenes>
+                  <scene sceneID="EHf-IW-A2E">
+                      <objects>
+                          <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                              <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                                  <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                                  <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                  <color key="backgroundColor" red="0.04" green="0.21" blue="0.13" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                              </view>
+                          </viewController>
+                          <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                      </objects>
+                  </scene>
+              </scenes>
+          </document>
+          EOF
+
+          xcrun ibtool --compile build/Payload/AlbsamShop.app/LaunchScreen.storyboardc LaunchScreen.storyboard --target-device iphone --target-device ipad --minimum-deployment-target 15.0 --errors --warnings
+
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun --sdk iphoneos swiftc main.swift \
+            -target arm64-apple-ios15.0 \
+            -sdk "$SDK_PATH" \
+            -framework UIKit \
+            -framework WebKit \
+            -framework Foundation \
+            -framework QuartzCore \
+            -o build/Payload/AlbsamShop.app/AlbsamShop
+
+          chmod +x build/Payload/AlbsamShop.app/AlbsamShop
+
+          ICON=""
+          for f in icon-512.png apple-touch-icon.png icon-192.png "لوكو.png"; do
+            if [ -f "$f" ]; then ICON="$f"; break; fi
+          done
+          if [ -n "$ICON" ]; then
+            sips -s format png -z 120 120 "$ICON" --out build/Payload/AlbsamShop.app/AppIcon60x60@2x.png || true
+            sips -s format png -z 180 180 "$ICON" --out build/Payload/AlbsamShop.app/AppIcon60x60@3x.png || true
+          fi
+
+          cat << 'EOF' > build/Payload/AlbsamShop.app/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>AlbsamShop</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.bsamjasm.albsamshop</string>
+              <key>CFBundleName</key>
+              <string>Albsam</string>
+              <key>CFBundleDisplayName</key>
+              <string>Albsam</string>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>en</string>
+              <key>CFBundleLocalizations</key>
+              <array>
+                  <string>en</string>
+                  <string>ar</string>
+              </array>
+              <key>CFBundleVersion</key>
+              <string>1.0</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>MinimumOSVersion</key>
+              <string>15.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>UILaunchStoryboardName</key>
+              <string>LaunchScreen</string>
+              <key>UIDeviceFamily</key>
+              <array>
+                  <integer>1</integer>
+                  <integer>2</integer>
+              </array>
+              <key>UIRequiredDeviceCapabilities</key>
+              <array>
+                  <string>arm64</string>
+              </array>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+              </array>
+              <key>UISupportedInterfaceOrientations~ipad</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+                  <string>UIInterfaceOrientationLandscapeLeft</string>
+                  <string>UIInterfaceOrientationLandscapeRight</string>
+              </array>
+              <key>CFBundleIcons</key>
+              <dict>
+                  <key>CFBundlePrimaryIcon</key>
+                  <dict>
+                      <key>CFBundleIconFiles</key>
+                      <array>
+                          <string>AppIcon60x60</string>
+                      </array>
+                  </dict>
+              </dict>
+              <key>UIApplicationShortcutItems</key>
+              <array>
+                  <dict>
+                      <key>UIApplicationShortcutItemType</key>
+                      <string>cart</string>
+                      <key>UIApplicationShortcutItemTitle</key>
+                      <string>السلة</string>
+                      <key>UIApplicationShortcutItemIconSymbolName</key>
+                      <string>cart</string>
+                  </dict>
+                  <dict>
+                      <key>UIApplicationShortcutItemType</key>
+                      <string>track</string>
+                      <key>UIApplicationShortcutItemTitle</key>
+                      <string>تتبع الطلب</string>
+                      <key>UIApplicationShortcutItemIconSymbolName</key>
+                      <string>shippingbox</string>
+                  </dict>
+                  <dict>
+                      <key>UIApplicationShortcutItemType</key>
+                      <string>search</string>
+                      <key>UIApplicationShortcutItemTitle</key>
+                      <string>بحث عن منتج</string>
+                      <key>UIApplicationShortcutItemIconSymbolName</key>
+                      <string>magnifyingglass</string>
+                  </dict>
+              </array>
+              <key>NSPhotoLibraryAddUsageDescription</key>
+              <string>لحفظ صور المنتجات في جهازك</string>
+          </dict>
+          </plist>
+          EOF
+
+          # الاسم العربي يظهر على الشاشة عبر ملفات الترجمة (Info.plist يبقى بحروف إنجليزية حتى يقبله AltStore)
+          for L in en ar; do
+            mkdir -p build/Payload/AlbsamShop.app/$L.lproj
+            printf '"CFBundleDisplayName" = "مجمع البسام";\n' > build/Payload/AlbsamShop.app/$L.lproj/InfoPlist.strings
+          done
+
+          codesign --force --deep --sign - build/Payload/AlbsamShop.app
+          cd build && zip -r store.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-ipa
+          path: build/store.ipa
