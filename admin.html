@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=yes">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://albsam-store-default-rtdb.firebaseio.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://oqlmptbmvqmmpwbbmohb.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <title>لوحة تحكم مجمع البسام</title>
     <!-- تم إضافة سطر ربط ملف المانيفست هنا لتوليد الـ IPA بنجاح -->
     <link rel="manifest" href="manifest.json">
@@ -38,7 +44,15 @@
         } catch (e) { }
     })();
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+    // Tailwind الجاهز (tailwind.css يُبنى تلقائياً من GitHub). إن لم يوجد بعد نرجع مؤقتاً للنسخة السريعة من CDN.
+    window.__twFallback = function () {
+        var s = document.createElement('script'); s.src = 'https://cdn.tailwindcss.com';
+        s.onload = function () { tailwind.config = { theme: { extend: { fontFamily: { sans: ['Cairo', 'sans-serif'] }, colors: { gold: { 400: '#facc15' }, store: { dark: '#0a3622', darker: '#062415', cream: '#f5f0e1', card: '#ffffff', accent: '#e6c567' } } } } }; };
+        document.head.appendChild(s);
+    };
+    </script>
+    <link rel="stylesheet" href="tailwind.css" onerror="window.__twFallback()">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 
@@ -46,19 +60,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Cairo', 'sans-serif'] },
-                    colors: {
-                        gold: { 400: '#facc15' },
-                        store: { dark: '#0a3622' }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         body {
             font-family: 'Cairo', sans-serif;
