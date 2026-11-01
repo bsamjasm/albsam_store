@@ -117,6 +117,39 @@ jobs:
               override var intrinsicContentSize: CGSize { return CGSize(width: 32, height: 32) }
           }
 
+          func appLogoFile() -> URL {
+              return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("applogo.png")
+          }
+
+          func appLogoImage() -> UIImage? {
+              if let d = try? Data(contentsOf: appLogoFile()), let i = UIImage(data: d) { return i }
+              if let lp = Bundle.main.path(forResource: "logo", ofType: "png") { return UIImage(contentsOfFile: lp) }
+              return nil
+          }
+
+          // يجلب شعار المتجر من لوحة الأدمن ويحفظه ليظهر في شاشة الترحيب عند الفتح التالي
+          func refreshAppLogo() {
+              guard let u = URL(string: "https://albsam-store-default-rtdb.firebaseio.com/settings/logoImage.json") else { return }
+              URLSession.shared.dataTask(with: u) { data, _, _ in
+                  guard let data = data, let raw = String(data: data, encoding: .utf8) else { return }
+                  let url = raw.replacingOccurrences(of: "\\/", with: "/").trimmingCharacters(in: CharacterSet(charactersIn: "\" \n"))
+                  let ud = UserDefaults.standard
+                  if url == "null" || url.isEmpty {
+                      try? FileManager.default.removeItem(at: appLogoFile())
+                      ud.removeObject(forKey: "applogo_url")
+                      return
+                  }
+                  if ud.string(forKey: "applogo_url") == url { return }
+                  guard let iu = URL(string: url) else { return }
+                  URLSession.shared.dataTask(with: iu) { d, _, _ in
+                      if let d = d, let img = UIImage(data: d), let png = img.pngData() {
+                          try? png.write(to: appLogoFile())
+                          ud.set(url, forKey: "applogo_url")
+                      }
+                  }.resume()
+              }.resume()
+          }
+
           class SplashView: UIView {
               let bg = UIView()
               var built = false
@@ -145,6 +178,19 @@ jobs:
                   logo.backgroundColor = storeAmber
                   logo.layer.cornerRadius = 16
                   logo.layer.masksToBounds = true
+                  if let limg = appLogoImage() {
+                      logo.text = ""
+                      let iv = UIImageView(image: limg)
+                      iv.contentMode = .scaleAspectFill
+                      iv.translatesAutoresizingMaskIntoConstraints = false
+                      logo.addSubview(iv)
+                      NSLayoutConstraint.activate([
+                          iv.topAnchor.constraint(equalTo: logo.topAnchor),
+                          iv.bottomAnchor.constraint(equalTo: logo.bottomAnchor),
+                          iv.leadingAnchor.constraint(equalTo: logo.leadingAnchor),
+                          iv.trailingAnchor.constraint(equalTo: logo.trailingAnchor)
+                      ])
+                  }
                   logo.translatesAutoresizingMaskIntoConstraints = false
                   logo.widthAnchor.constraint(equalToConstant: 80).isActive = true
                   logo.heightAnchor.constraint(equalToConstant: 80).isActive = true
@@ -308,6 +354,7 @@ jobs:
           class AppDelegate: UIResponder, UIApplicationDelegate {
               var window: UIWindow?
               func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  refreshAppLogo()
                   let window = UIWindow(frame: UIScreen.main.bounds)
                   window.rootViewController = WebViewController()
                   window.makeKeyAndVisible()
@@ -599,10 +646,11 @@ jobs:
           chmod +x build/Payload/AlbsamShop.app/AlbsamShop
 
           ICON=""
-          for f in icon-512.png apple-touch-icon.png icon-192.png "لوكو.png"; do
+          for f in apple-touch-icon.png icon-512.png icon-192.png "لوكو.png"; do
             if [ -f "$f" ]; then ICON="$f"; break; fi
           done
           if [ -n "$ICON" ]; then
+            cp "$ICON" build/Payload/AlbsamShop.app/logo.png || true
             sips -s format png -z 120 120 "$ICON" --out build/Payload/AlbsamShop.app/AppIcon60x60@2x.png || true
             sips -s format png -z 180 180 "$ICON" --out build/Payload/AlbsamShop.app/AppIcon60x60@3x.png || true
           fi
