@@ -104,6 +104,10 @@
         html.fw #splash .hero-title, html.fw #splash .hm-in { visibility: hidden; }
         @keyframes pulse-logo { 0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250,204,21,.55); } 50% { transform: scale(1.08); box-shadow: 0 0 0 18px rgba(250,204,21,0); } }
         .splash-logo { animation: pulse-logo 1.4s ease-in-out infinite; }
+    #recent-grid .rc [class*="min-h-"]{min-height:6.6rem!important}
+    @media(min-width:640px){#recent-grid .rc [class*="min-h-"]{min-height:9.8rem!important}}
+    #recent-grid .rc h3{font-size:11px!important}
+    #recent-grid .rc .p-2{padding:.4rem!important}
     </style>
 </head>
 <body class="min-h-screen flex flex-col selection:bg-store-dark selection:text-white">
@@ -134,7 +138,7 @@
     <button id="to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="للأعلى" class="hidden fixed bottom-5 right-4 z-40 w-11 h-11 rounded-full bg-store-dark text-white items-center justify-center shadow-xl cursor-pointer"><i class="fa-solid fa-chevron-up"></i></button>
 
     <!-- إشعار التنبيه -->
-    <div id="toast" class="fixed right-3 left-3 sm:left-auto sm:right-6 z-[80] transform -translate-y-32 opacity-0 transition-all duration-300 bg-store-dark text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-800 cursor-pointer" style="top:calc(env(safe-area-inset-top, 0px) + 10px)">
+    <div id="toast" class="fixed right-3 left-3 sm:left-auto sm:right-6 z-[110] transform -translate-y-32 opacity-0 transition-all duration-300 bg-store-dark text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-800 cursor-pointer" style="top:calc(env(safe-area-inset-top, 0px) + 10px)">
         <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
         <span id="toast-message" class="font-semibold text-sm"></span>
     </div>
@@ -220,8 +224,8 @@
         </section>
 
         <!-- شاهدتها مؤخراً -->
-        <section id="recent-section" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-8 hidden">
-            <h2 class="text-lg sm:text-2xl font-black text-store-dark mb-4"><i class="fa-solid fa-clock-rotate-left text-amber-500 ml-1"></i> شاهدتها مؤخراً</h2>
+        <section id="recent-section" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-5 hidden">
+            <h2 class="text-sm sm:text-lg font-black text-store-dark mb-2"><i class="fa-solid fa-clock-rotate-left text-amber-500 ml-1"></i> شاهدتها مؤخراً</h2>
             <div id="recent-grid" class="flex gap-3 overflow-x-auto pb-2 no-scrollbar"></div>
         </section>
 
@@ -272,7 +276,7 @@
     <div id="track-modal" class="fixed inset-0 z-50 hidden">
         <div onclick="closeTrack()" class="absolute inset-0 bg-store-dark/60 backdrop-blur-sm"></div>
         <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-            <div class="pointer-events-auto bg-white w-full max-w-sm rounded-3xl shadow-2xl max-h-[88vh] overflow-y-auto p-4 space-y-3" style="max-height:88dvh" id="track-body">
+            <div class="pointer-events-auto bg-white/85 backdrop-blur-md border-2 border-amber-400 w-full max-w-sm rounded-3xl shadow-2xl max-h-[88vh] overflow-y-auto p-4 space-y-3" style="max-height:88dvh" id="track-body">
                 <div class="flex items-center justify-between">
                     <h3 class="text-base font-black text-slate-900"><i class="fa-solid fa-truck-fast text-store-dark ml-1"></i> <span data-i18n="track_title">تتبع الطلب</span></h3>
                     <button onclick="closeTrack()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
@@ -398,7 +402,6 @@
             <a id="call-link" href="#" class="inline-flex items-center gap-2 bg-store-dark text-white text-xs font-black px-4 py-2 rounded-full"><i class="fa-solid fa-phone"></i> اتصل بنا</a>
             <p id="call-hours" class="text-[11px] font-semibold text-slate-500 mt-1.5"></p>
         </div>
-        <button id="share-store-btn" onclick="shareStore()" class="mb-3 bg-amber-400 hover:bg-amber-300 text-store-dark text-xs font-black px-4 py-2 rounded-full cursor-pointer">📤 شارك المتجر مع أصدقائك</button>
         © مجمع البسام
         <div id="apk-card" class="hidden mx-4 mt-4 hero-pattern rounded-2xl border-2 border-amber-400 text-white p-4 relative overflow-hidden max-w-sm sm:mx-auto text-right">
             <div class="relative z-10 flex items-center gap-3">
@@ -411,6 +414,7 @@
             </div>
             <p class="relative z-10 text-[10px] text-emerald-100/60 mt-2">إذا ظهر تنبيه أثناء التثبيت، اختر «السماح بالتثبيت من هذا المصدر».</p>
         </div>
+        <div class="mt-4"><button id="share-store-btn" onclick="shareStore()" class="bg-amber-400 hover:bg-amber-300 text-store-dark text-xs font-black px-4 py-2 rounded-full cursor-pointer">📤 شارك المتجر مع أصدقائك</button></div>
     </footer>
 
     <script>
@@ -1601,9 +1605,10 @@
                 input.blur();
                 input.classList.remove('flex-1', 'text-sm');
                 input.classList.add('text-center', 'font-black', 'tracking-widest', 'text-base', 'pointer-events-none', 'select-none', 'py-0.5');
-                input.classList.remove('py-2.5');
+                input.classList.remove('py-2.5', 'bg-slate-50', 'border-slate-200');
+                input.classList.add('bg-amber-400', 'border-amber-500', 'text-store-dark');
                 document.getElementById('track-mine').style.display = '';
-                btn.className = 'bg-store-dark hover:bg-emerald-950 text-white text-xs font-bold px-4 py-1.5 rounded-xl cursor-pointer';
+                btn.className = 'bg-amber-400 hover:bg-amber-300 text-store-dark border-2 border-amber-600 text-sm font-black px-5 py-2 rounded-xl cursor-pointer shadow-md hm-glow';
                 btn.textContent = t('track_copy');
                 fitTrackInput();
                 if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTrackInput);
@@ -1617,7 +1622,8 @@
                 input.style.width = '';
                 input.classList.add('flex-1', 'text-sm');
                 input.classList.remove('text-center', 'font-black', 'tracking-widest', 'text-base', 'pointer-events-none', 'select-none', 'py-0.5');
-                input.classList.add('py-2.5');
+                input.classList.add('py-2.5', 'bg-slate-50', 'border-slate-200');
+                input.classList.remove('bg-amber-400', 'border-amber-500', 'text-store-dark');
                 document.getElementById('track-mine').style.display = '';
                 btn.className = 'w-full bg-store-dark hover:bg-emerald-950 text-white text-sm font-black py-3 rounded-xl cursor-pointer';
                 btn.textContent = t('track_title');
@@ -1978,7 +1984,8 @@ async function pasteTrackCode() {
             if (!n) return;
             try { sessionStorage.setItem('albsam_remind', '1'); } catch (e) { }
             const d = document.createElement('div');
-            d.className = 'fixed bottom-20 right-4 left-4 sm:left-auto sm:w-80 z-[60] bg-white border border-amber-300 shadow-2xl rounded-2xl p-3 flex items-center gap-3';
+            d.className = 'fixed right-3 left-3 sm:left-auto sm:right-6 sm:w-80 z-[99] bg-white border border-amber-300 shadow-2xl rounded-2xl p-3 flex items-center gap-3';
+            d.style.top = 'calc(env(safe-area-inset-top, 0px) + 10px)';
             d.innerHTML = `<div class="flex-1 text-xs font-bold text-slate-800">🛒 عندك ${n} منتج في السلة بانتظارك</div><button data-go class="bg-store-dark text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">أكمل الطلب</button><button data-x class="text-slate-400 text-xl leading-none cursor-pointer">×</button>`;
             d.querySelector('[data-go]').onclick = () => { d.remove(); toggleCart(); };
             d.querySelector('[data-x]').onclick = () => d.remove();
@@ -2129,7 +2136,8 @@ async function pasteTrackCode() {
             if (!deferredInstall) return;
             const d = document.createElement('div');
             d.id = 'install-bar';
-            d.className = 'fixed bottom-20 right-4 left-4 sm:left-auto sm:w-80 z-[60] bg-store-dark text-white shadow-2xl rounded-2xl p-3 flex items-center gap-3';
+            d.style.top = 'calc(env(safe-area-inset-top, 0px) + 10px)';
+            d.className = 'fixed right-3 left-3 sm:left-auto sm:right-6 sm:w-80 z-[99] bg-store-dark text-white shadow-2xl rounded-2xl p-3 flex items-center gap-3';
             d.innerHTML = `<div class="flex-1 text-xs font-bold leading-relaxed">📲 ثبّت متجر مجمع البسام على جوالك للوصول السريع</div><button data-go class="bg-amber-400 text-store-dark text-xs font-black px-3 py-2 rounded-xl cursor-pointer">تثبيت</button><button data-x class="text-white/70 text-xl leading-none cursor-pointer">×</button>`;
             const go = d.querySelector('[data-go]');
             if (go) go.onclick = async () => { d.remove(); try { deferredInstall.prompt(); await deferredInstall.userChoice; } catch (e) { } deferredInstall = null; };
@@ -2317,7 +2325,8 @@ function checkNotifyReady() {
     const p = ready[0];
     const d = document.createElement('div');
     d.id = 'notify-bar';
-    d.className = 'fixed top-28 right-3 left-3 sm:left-auto sm:w-96 z-[90] bg-white border-2 border-emerald-500 shadow-2xl rounded-2xl p-3 flex items-center gap-3';
+    d.style.top = 'calc(env(safe-area-inset-top, 0px) + 10px)';
+    d.className = 'fixed right-3 left-3 sm:left-auto sm:right-6 sm:w-96 z-[99] bg-white border-2 border-emerald-500 shadow-2xl rounded-2xl p-3 flex items-center gap-3';
     d.innerHTML = `<div class="text-2xl">🎉</div><div class="flex-1 text-xs font-bold text-slate-800 leading-relaxed">توفّر الآن المنتج الذي طلبت إشعاراً عنه:<br><span class="text-store-dark font-black">${esc(p.name)}</span>${ready.length > 1 ? ` <span class="text-slate-400">(+${ready.length - 1})</span>` : ''}</div><button data-go class="bg-store-dark text-white text-xs font-black px-3 py-2 rounded-xl cursor-pointer">اطلبه</button><button data-x class="text-slate-400 text-xl leading-none cursor-pointer">×</button>`;
     const clear = () => { lsSet(NOTIFY_KEY, JSON.stringify(lsJson(NOTIFY_KEY, []).filter(id => !ready.some(r => r.id === id)))); d.remove(); };
     d.querySelector('[data-go]').onclick = () => { clear(); openProduct(p.id); };
@@ -2419,7 +2428,7 @@ function renderRecent() {
     const sec = document.getElementById('recent-section'); if (!sec || typeof products === 'undefined') return;
     const list = lsJson(RV_KEY, []).map(id => products.find(p => p.id === id)).filter(p => p && !isHidden(p)).slice(0, 8);
     sec.classList.toggle('hidden', list.length === 0 || !ft('recent'));
-    document.getElementById('recent-grid').innerHTML = list.map(p => `<div class="w-40 sm:w-52 flex-shrink-0">${productCard(p)}</div>`).join('');
+    document.getElementById('recent-grid').innerHTML = list.map(p => `<div class="rc w-28 sm:w-36 flex-shrink-0">${productCard(p)}</div>`).join('');
 }
 (function () {
     const _op = openProduct;
