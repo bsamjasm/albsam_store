@@ -90,6 +90,10 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
+          <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+          <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+          <uses-permission android:name="android.permission.CAMERA" />
+          <uses-feature android:name="android.hardware.camera" android:required="false" />
               <application
                   android:label="@string/app_name"
                   android:icon="@mipmap/ic_launcher"
@@ -100,13 +104,32 @@ jobs:
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
+                      android:launchMode="singleTask"
+                      android:screenOrientation="fullUser"
                       android:windowSoftInputMode="adjustResize"
-                      android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode">
+                      android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|fontScale|density">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="https" android:host="bsamjasm.github.io" android:pathPrefix="/albsam_store" />
+                      </intent-filter>
+                      <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
                   </activity>
+                  <receiver android:name=".WidgetProvider" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                      </intent-filter>
+                      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info" />
+                  </receiver>
+                  <service
+                      android:name=".StatusJob"
+                      android:permission="android.permission.BIND_JOB_SERVICE"
+                      android:exported="false" />
               </application>
           </manifest>
           EOF
@@ -114,6 +137,8 @@ jobs:
           cat > $R/values/strings.xml <<'EOF'
           <resources>
               <string name="app_name">مجمع البسام</string>
+              <string name="sc_track">تتبع طلبي</string>
+              <string name="sc_cart">سلة المشتريات</string>
           </resources>
           EOF
 
@@ -128,11 +153,153 @@ jobs:
           </resources>
           EOF
 
+          mkdir -p $R/values-v31 $R/drawable $R/xml $R/layout
+          cat > $R/layout/widget.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/w_root"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical"
+              android:gravity="center"
+              android:padding="12dp"
+              android:background="@color/store_green">
+              <TextView
+                  android:id="@+id/w_title"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:textColor="#FCD34D"
+                  android:textStyle="bold"
+                  android:textSize="14sp" />
+              <TextView
+                  android:id="@+id/w_line"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="4dp"
+                  android:textColor="#FFFFFF"
+                  android:textSize="13sp" />
+          </LinearLayout>
+          EOF
+
+          cat > $R/xml/widget_info.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+              android:minWidth="180dp"
+              android:minHeight="60dp"
+              android:updatePeriodMillis="1800000"
+              android:initialLayout="@layout/widget"
+              android:resizeMode="horizontal|vertical"
+              android:widgetCategory="home_screen" />
+          EOF
+
+          cat > $J/WidgetProvider.java <<'EOF'
+          package com.albsam.store;
+
+          import android.app.PendingIntent;
+          import android.appwidget.AppWidgetManager;
+          import android.appwidget.AppWidgetProvider;
+          import android.content.ComponentName;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.net.Uri;
+          import android.widget.RemoteViews;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          public class WidgetProvider extends AppWidgetProvider {
+              @Override
+              public void onUpdate(Context c, AppWidgetManager m, int[] ids) {
+                  for (int id : ids) m.updateAppWidget(id, build(c));
+              }
+
+              static RemoteViews build(Context c) {
+                  RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget);
+                  String line = "لا توجد طلبات";
+                  try {
+                      SharedPreferences sp = c.getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                      JSONArray a = new JSONArray(sp.getString("orders", "[]"));
+                      if (a.length() > 0) {
+                          JSONObject o = a.getJSONObject(0);
+                          String s = o.optString("s", "");
+                          line = "طلب #" + o.optString("n", "") + ": " + (s.length() == 0 ? "جديد" : s);
+                      }
+                  } catch (Exception e) { }
+                  v.setTextViewText(R.id.w_title, "مجمع البسام");
+                  v.setTextViewText(R.id.w_line, line);
+                  Intent in = new Intent(c, MainActivity.class);
+                  in.setAction(Intent.ACTION_VIEW);
+                  in.setData(Uri.parse("https://bsamjasm.github.io/albsam_store/?open=track"));
+                  v.setOnClickPendingIntent(R.id.w_root, PendingIntent.getActivity(c, 0, in, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+                  return v;
+              }
+
+              static void refresh(Context c) {
+                  try {
+                      AppWidgetManager m = AppWidgetManager.getInstance(c);
+                      int[] ids = m.getAppWidgetIds(new ComponentName(c, WidgetProvider.class));
+                      for (int id : ids) m.updateAppWidget(id, build(c));
+                  } catch (Exception e) { }
+              }
+          }
+          EOF
+          cat > $R/xml/shortcuts.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+              <shortcut android:shortcutId="track" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/sc_track" android:shortcutLongLabel="@string/sc_track">
+                  <intent android:action="android.intent.action.VIEW" android:targetPackage="com.albsam.store" android:targetClass="com.albsam.store.MainActivity" android:data="https://bsamjasm.github.io/albsam_store/?open=track" />
+              </shortcut>
+              <shortcut android:shortcutId="cart" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/sc_cart" android:shortcutLongLabel="@string/sc_cart">
+                  <intent android:action="android.intent.action.VIEW" android:targetPackage="com.albsam.store" android:targetClass="com.albsam.store.MainActivity" android:data="https://bsamjasm.github.io/albsam_store/?open=cart" />
+              </shortcut>
+          </shortcuts>
+          EOF
+          cat > $R/drawable/splash_empty.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#00000000" />
+              <size android:width="1dp" android:height="1dp" />
+          </shape>
+          EOF
+
+          cat > $R/values-v31/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+                  <item name="android:windowBackground">@color/store_green</item>
+                  <item name="android:statusBarColor">@color/store_green</item>
+                  <item name="android:navigationBarColor">@color/store_green</item>
+                  <item name="android:windowSplashScreenBackground">@color/store_green</item>
+                  <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_empty</item>
+                  <item name="android:windowSplashScreenAnimationDuration">0</item>
+              </style>
+          </resources>
+          EOF
+
           cat > $J/MainActivity.java <<'EOF'
           package com.albsam.store;
 
           import android.app.Activity;
           import android.content.ActivityNotFoundException;
+          import android.content.ClipData;
+          import android.content.ClipboardManager;
+          import android.content.Context;
+          import android.content.ComponentName;
+          import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
+          import android.app.job.JobInfo;
+          import android.app.job.JobScheduler;
+          import android.os.Build;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.content.ContentValues;
+          import android.provider.MediaStore;
+          import android.util.Base64;
+          import android.webkit.PermissionRequest;
+          import java.io.OutputStream;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
           import android.content.Intent;
           import android.net.Uri;
           import android.os.Bundle;
@@ -142,17 +309,39 @@ jobs:
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
+          import android.graphics.Typeface;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.ViewGroup;
+          import android.view.animation.AccelerateDecelerateInterpolator;
+          import android.view.animation.Animation;
+          import android.view.animation.ScaleAnimation;
+          import android.widget.FrameLayout;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
 
           public class MainActivity extends Activity {
               static final String HOME = "https://bsamjasm.github.io/albsam_store/";
               WebView web;
+              View overlay;
+              boolean splashDone = false;
+              PermissionRequest pendingPerm = null;
+              long startMs;
 
               @Override
               protected void onCreate(Bundle saved) {
                   super.onCreate(saved);
+                  startMs = System.currentTimeMillis();
                   web = new WebView(this);
                   web.setBackgroundColor(0xFF0A3622);
-                  setContentView(web);
+                  FrameLayout root = new FrameLayout(this);
+                  root.setBackgroundColor(0xFF0A3622);
+                  root.addView(web, new FrameLayout.LayoutParams(-1, -1));
+                  overlay = buildSplash();
+                  root.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
+                  setContentView(root);
+                  web.postDelayed(new Runnable() { public void run() { hideSplash(); } }, 8000);
                   WebSettings s = web.getSettings();
                   s.setJavaScriptEnabled(true);
                   s.setDomStorageEnabled(true);
@@ -164,12 +353,229 @@ jobs:
                           return handle(r.getUrl());
                       }
                       @Override
+                      public void onPageFinished(WebView v, String url) {
+                          if (url != null && url.startsWith("https")) hideSplash();
+                      }
+                      @Override
                       public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
-                          if (r.isForMainFrame()) showOffline();
+                          if (r.isForMainFrame()) { showOffline(); splashDone = false; hideSplash(); }
                       }
                   });
-                  web.setWebChromeClient(new WebChromeClient());
-                  if (saved == null || web.restoreState(saved) == null) web.loadUrl(HOME);
+                  web.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public void onPermissionRequest(final PermissionRequest request) {
+                          runOnUiThread(new Runnable() {
+                              public void run() {
+                                  if (checkSelfPermission("android.permission.CAMERA") == PackageManager.PERMISSION_GRANTED) {
+                                      request.grant(request.getResources());
+                                  } else {
+                                      pendingPerm = request;
+                                      requestPermissions(new String[]{"android.permission.CAMERA"}, 2);
+                                  }
+                              }
+                          });
+                      }
+                  });
+                  web.addJavascriptInterface(new Object() {
+                      @android.webkit.JavascriptInterface
+                      public void share(final String text) {
+                          runOnUiThread(new Runnable() {
+                              public void run() {
+                                  Intent i = new Intent(Intent.ACTION_SEND);
+                                  i.setType("text/plain");
+                                  i.putExtra(Intent.EXTRA_TEXT, text);
+                                  startActivity(Intent.createChooser(i, "مشاركة"));
+                              }
+                          });
+                      }
+                      @android.webkit.JavascriptInterface
+                      public void setOrders(String json) {
+                          try {
+                              SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                              JSONArray old = new JSONArray(sp.getString("orders", "[]"));
+                              JSONArray nw = new JSONArray(json);
+                              for (int a = 0; a < nw.length(); a++) {
+                                  JSONObject o = nw.getJSONObject(a);
+                                  for (int b = 0; b < old.length(); b++) {
+                                      JSONObject p = old.getJSONObject(b);
+                                      if (p.optString("c").equals(o.optString("c"))) { o.put("s", p.optString("s", "")); break; }
+                                  }
+                              }
+                              sp.edit().putString("orders", nw.toString()).apply();
+                              WidgetProvider.refresh(MainActivity.this);
+                          } catch (Exception e) { }
+                      }
+                      @android.webkit.JavascriptInterface
+                      public int version() {
+                          try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode; } catch (Exception e) { return 0; }
+                      }
+                      @android.webkit.JavascriptInterface
+                      public void setFlags(String json) {
+                          try {
+                              new JSONObject(json);
+                              getSharedPreferences("albsam", Context.MODE_PRIVATE).edit().putString("flags", json).apply();
+                          } catch (Exception e) { }
+                      }
+                      @android.webkit.JavascriptInterface
+                      public void shareImg(final String text, final String src) {
+                          new Thread(new Runnable() {
+                              public void run() {
+                                  Uri uri = null;
+                                  try {
+                                      Bitmap bm = null;
+                                      if (src != null && src.startsWith("data:")) {
+                                          byte[] bytes = Base64.decode(src.substring(src.indexOf(',') + 1), Base64.DEFAULT);
+                                          bm = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                                      } else if (src != null && src.startsWith("http")) {
+                                          HttpURLConnection c = (HttpURLConnection) new URL(src).openConnection();
+                                          c.setConnectTimeout(10000);
+                                          c.setReadTimeout(10000);
+                                          bm = BitmapFactory.decodeStream(c.getInputStream());
+                                          c.disconnect();
+                                      }
+                                      if (bm != null && Build.VERSION.SDK_INT >= 29) {
+                                          ContentValues cv = new ContentValues();
+                                          cv.put(MediaStore.Images.Media.DISPLAY_NAME, "albsam_" + System.currentTimeMillis() + ".jpg");
+                                          cv.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                                          cv.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Albsam");
+                                          uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
+                                          if (uri != null) {
+                                              OutputStream os = getContentResolver().openOutputStream(uri);
+                                              bm.compress(Bitmap.CompressFormat.JPEG, 90, os);
+                                              os.close();
+                                          }
+                                      }
+                                  } catch (Exception e) { uri = null; }
+                                  final Uri fu = uri;
+                                  runOnUiThread(new Runnable() {
+                                      public void run() {
+                                          Intent it = new Intent(Intent.ACTION_SEND);
+                                          if (fu != null) {
+                                              it.setType("image/jpeg");
+                                              it.putExtra(Intent.EXTRA_STREAM, fu);
+                                              it.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                          } else {
+                                              it.setType("text/plain");
+                                          }
+                                          it.putExtra(Intent.EXTRA_TEXT, text);
+                                          startActivity(Intent.createChooser(it, "مشاركة"));
+                                      }
+                                  });
+                              }
+                          }).start();
+                      }
+                      @android.webkit.JavascriptInterface
+                      public void setWaits(String json) {
+                          try {
+                              new JSONArray(json);
+                              getSharedPreferences("albsam", Context.MODE_PRIVATE).edit().putString("waits", json).apply();
+                          } catch (Exception e) { }
+                      }
+                      @android.webkit.JavascriptInterface
+                      public String paste() {
+                          try {
+                              ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                              if (cm != null && cm.hasPrimaryClip()) {
+                                  ClipData d = cm.getPrimaryClip();
+                                  if (d != null && d.getItemCount() > 0) {
+                                      CharSequence t = d.getItemAt(0).coerceToText(MainActivity.this);
+                                      return t == null ? "" : t.toString();
+                                  }
+                              }
+                          } catch (Exception e) { }
+                          return "";
+                      }
+                  }, "AlbsamApp");
+                  if (saved == null || web.restoreState(saved) == null) web.loadUrl(startUrl(getIntent()));
+                  if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
+                  }
+                  try {
+                      JobScheduler js = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
+                      JobInfo info = new JobInfo.Builder(1001, new ComponentName(this, StatusJob.class))
+                          .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                          .setPeriodic(15 * 60 * 1000L)
+                          .setPersisted(true)
+                          .build();
+                      js.schedule(info);
+                  } catch (Exception e) { }
+              }
+
+              @Override
+              public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+                  super.onRequestPermissionsResult(code, perms, res);
+                  if (code == 2 && pendingPerm != null) {
+                      if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) pendingPerm.grant(pendingPerm.getResources());
+                      else pendingPerm.deny();
+                      pendingPerm = null;
+                  }
+              }
+
+              String startUrl(Intent i) {
+                  Uri u = i == null ? null : i.getData();
+                  if (u != null && "https".equals(u.getScheme()) && "bsamjasm.github.io".equals(u.getHost())) return u.toString();
+                  return HOME;
+              }
+
+              @Override
+              protected void onNewIntent(Intent i) {
+                  super.onNewIntent(i);
+                  setIntent(i);
+                  web.loadUrl(startUrl(i));
+              }
+
+              View buildSplash() {
+                  float d = getResources().getDisplayMetrics().density;
+                  LinearLayout l = new LinearLayout(this);
+                  l.setOrientation(LinearLayout.VERTICAL);
+                  l.setGravity(Gravity.CENTER);
+                  l.setBackgroundColor(0xFF0A3622);
+                  l.setClickable(true);
+                  ImageView iv = new ImageView(this);
+                  iv.setImageResource(R.mipmap.ic_launcher);
+                  int px = (int) (110 * d);
+                  l.addView(iv, new LinearLayout.LayoutParams(px, px));
+                  ScaleAnimation pulse = new ScaleAnimation(0.92f, 1.08f, 0.92f, 1.08f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
+                  pulse.setDuration(900);
+                  pulse.setRepeatMode(Animation.REVERSE);
+                  pulse.setRepeatCount(Animation.INFINITE);
+                  pulse.setInterpolator(new AccelerateDecelerateInterpolator());
+                  iv.startAnimation(pulse);
+                  TextView t1 = new TextView(this);
+                  t1.setText("أهلاً بكم");
+                  t1.setTextColor(0xFFFCD34D);
+                  t1.setTextSize(14);
+                  t1.setGravity(Gravity.CENTER);
+                  t1.setAlpha(0f);
+                  LinearLayout.LayoutParams p1 = new LinearLayout.LayoutParams(-2, -2);
+                  p1.topMargin = (int) (18 * d);
+                  l.addView(t1, p1);
+                  TextView t2 = new TextView(this);
+                  t2.setText("مجمع البسام");
+                  t2.setTextColor(0xFFFFFFFF);
+                  t2.setTextSize(26);
+                  t2.setTypeface(Typeface.DEFAULT_BOLD);
+                  t2.setGravity(Gravity.CENTER);
+                  t2.setAlpha(0f);
+                  LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(-2, -2);
+                  p2.topMargin = (int) (4 * d);
+                  l.addView(t2, p2);
+                  t1.animate().alpha(1f).setStartDelay(200).setDuration(500).start();
+                  t2.animate().alpha(1f).setStartDelay(400).setDuration(500).start();
+                  return l;
+              }
+
+              void hideSplash() {
+                  if (splashDone || overlay == null) return;
+                  splashDone = true;
+                  long wait = Math.max(0, 1200 - (System.currentTimeMillis() - startMs));
+                  overlay.postDelayed(new Runnable() {
+                      public void run() {
+                          overlay.animate().alpha(0f).setDuration(400).withEndAction(new Runnable() {
+                              public void run() { overlay.setVisibility(View.GONE); }
+                          }).start();
+                      }
+                  }, wait);
               }
 
               boolean handle(Uri u) {
@@ -208,6 +614,196 @@ jobs:
           }
           EOF
 
+          cat > $J/StatusJob.java <<'EOF'
+          package com.albsam.store;
+
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.app.job.JobParameters;
+          import android.app.job.JobService;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.os.Build;
+          import java.io.BufferedReader;
+          import java.io.InputStreamReader;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+          import org.json.JSONTokener;
+
+          public class StatusJob extends JobService {
+              static final String DB = "https://albsam-store-default-rtdb.firebaseio.com/";
+
+              @Override
+              public boolean onStartJob(final JobParameters p) {
+                  new Thread(new Runnable() {
+                      public void run() {
+                          try { checkOrders(); } catch (Exception e) { }
+                          try { checkWaits(); } catch (Exception e) { }
+                          try { checkPush(); } catch (Exception e) { }
+                          try { updateBadge(); } catch (Exception e) { }
+                          WidgetProvider.refresh(StatusJob.this);
+                          jobFinished(p, false);
+                      }
+                  }).start();
+                  return true;
+              }
+
+              @Override
+              public boolean onStopJob(JobParameters p) { return false; }
+
+              boolean flag(String k) {
+                  try {
+                      SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                      return new JSONObject(sp.getString("flags", "{}")).optBoolean(k, true);
+                  } catch (Exception e) { return true; }
+              }
+
+              void checkPush() throws Exception {
+                  SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                  Object v = fetchJson("settings/push.json");
+                  if (!(v instanceof JSONObject)) return;
+                  JSONObject p = (JSONObject) v;
+                  String id = p.optString("id", "");
+                  if (id.length() == 0) return;
+                  String last = sp.getString("lastPush", "");
+                  if (id.equals(last)) return;
+                  sp.edit().putString("lastPush", id).apply();
+                  if (last.length() == 0 || !flag("offers")) return;
+                  notifyUser(p.optString("title", "مجمع البسام"), p.optString("body", ""), 5000);
+              }
+
+              void updateBadge() throws Exception {
+                  NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                  if (nm == null) return;
+                  SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                  JSONArray arr = new JSONArray(sp.getString("orders", "[]"));
+                  int n = 0;
+                  for (int i = 0; i < arr.length(); i++) {
+                      if (!isFinal(arr.getJSONObject(i).optString("s", ""))) n++;
+                  }
+                  if (!flag("badge") || n == 0) { nm.cancel(4000); return; }
+                  if (Build.VERSION.SDK_INT >= 26) {
+                      NotificationChannel ch = new NotificationChannel("badge", "الطلبات الجارية", NotificationManager.IMPORTANCE_LOW);
+                      ch.setShowBadge(true);
+                      nm.createNotificationChannel(ch);
+                  }
+                  Intent in = new Intent(this, MainActivity.class);
+                  PendingIntent pi = PendingIntent.getActivity(this, 4000, in, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+                  Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, "badge") : new Notification.Builder(this);
+                  b.setSmallIcon(R.mipmap.ic_launcher)
+                      .setContentTitle("لديك " + n + " طلبات جارية")
+                      .setContentText("اضغط لتتبع طلباتك")
+                      .setNumber(n)
+                      .setContentIntent(pi);
+                  nm.notify(4000, b.build());
+              }
+
+              boolean isFinal(String s) {
+                  return s.equals("تم التسليم") || s.equals("ملغي") || s.equals("مرتجع");
+              }
+
+              void checkOrders() throws Exception {
+                  SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                  JSONArray arr = new JSONArray(sp.getString("orders", "[]"));
+                  boolean changed = false;
+                  for (int i = 0; i < arr.length(); i++) {
+                      JSONObject o = arr.getJSONObject(i);
+                      String last = o.optString("s", "");
+                      if (isFinal(last)) continue;
+                      String code = o.optString("c");
+                      if (!code.matches("[A-Za-z0-9]+")) continue;
+                      Object v = fetchJson("tracking/" + code + "/status.json");
+                      String st = v instanceof String ? (String) v : null;
+                      if (st == null || st.length() == 0 || st.equals(last)) continue;
+                      o.put("s", st);
+                      changed = true;
+                      boolean quiet = last.length() == 0 && (isFinal(st) || st.equals("جديد"));
+                      if (!quiet && !st.equals("جديد") && flag("orders")) notifyUser("حالة الطلب", "طلبك #" + o.optString("n", "") + ": " + msgFor(st), 2000 + i);
+                  }
+                  if (changed) sp.edit().putString("orders", arr.toString()).apply();
+              }
+
+              void checkWaits() throws Exception {
+                  SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                  JSONArray arr = new JSONArray(sp.getString("waits", "[]"));
+                  String notified = "," + sp.getString("notified", "") + ",";
+                  boolean changed = false;
+                  for (int i = 0; i < arr.length(); i++) {
+                      JSONObject w = arr.getJSONObject(i);
+                      String id = w.optString("i");
+                      if (!id.matches("[0-9]+")) continue;
+                      Object v = fetchJson("products/" + id + ".json");
+                      if (!(v instanceof JSONObject)) continue;
+                      JSONObject p = (JSONObject) v;
+                      boolean avail = !"غير متوفر".equals(p.optString("status"));
+                      String stock = p.isNull("stock") ? "" : p.optString("stock", "");
+                      if (stock.length() > 0 && stock.matches("-?[0-9]+") && Long.parseLong(stock) <= 0) avail = false;
+                      String hid = p.optString("hidden", "");
+                      if (hid.equals("true")) avail = false;
+                      boolean was = notified.contains("," + id + ",");
+                      if (avail && !was && flag("waits")) {
+                          String name = p.optString("name", w.optString("n", ""));
+                          notifyUser("توفر المنتج", "توفر الآن: " + name, 3000 + (int) (Long.parseLong(id) % 1000));
+                          notified = notified + id + ",";
+                          changed = true;
+                      } else if (!avail && was) {
+                          notified = notified.replace("," + id + ",", ",");
+                          changed = true;
+                      }
+                  }
+                  if (changed) sp.edit().putString("notified", notified.replaceAll("^,|,$", "")).apply();
+              }
+
+              Object fetchJson(String path) {
+                  HttpURLConnection c = null;
+                  try {
+                      c = (HttpURLConnection) new URL(DB + path).openConnection();
+                      c.setConnectTimeout(10000);
+                      c.setReadTimeout(10000);
+                      BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"));
+                      StringBuilder sb = new StringBuilder();
+                      String line;
+                      while ((line = r.readLine()) != null) sb.append(line);
+                      r.close();
+                      return new JSONTokener(sb.toString()).nextValue();
+                  } catch (Exception e) {
+                      return null;
+                  } finally {
+                      if (c != null) c.disconnect();
+                  }
+              }
+
+              String msgFor(String st) {
+                  if (st.equals("قيد التجهيز")) return "قيد التجهيز الآن";
+                  if (st.equals("خرج للتوصيل")) return "خرج للتوصيل 🚚";
+                  if (st.equals("تم التسليم")) return "تم التسليم ✅";
+                  if (st.equals("ملغي")) return "تم إلغاؤه";
+                  return st;
+              }
+
+              void notifyUser(String title, String text, int id) {
+                  NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                  if (nm == null) return;
+                  if (Build.VERSION.SDK_INT >= 26) {
+                      nm.createNotificationChannel(new NotificationChannel("orders", "إشعارات المتجر", NotificationManager.IMPORTANCE_HIGH));
+                  }
+                  Intent in = new Intent(this, MainActivity.class);
+                  PendingIntent pi = PendingIntent.getActivity(this, id, in, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+                  Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, "orders") : new Notification.Builder(this);
+                  b.setSmallIcon(R.mipmap.ic_launcher)
+                      .setContentTitle(title)
+                      .setContentText(text)
+                      .setAutoCancel(true)
+                      .setContentIntent(pi);
+                  nm.notify(id, b.build());
+              }
+          }
+          EOF
           SRC=""
           for f in apple-touch-icon.png icon-512.png icon-192.png; do
             if [ -f "$f" ]; then SRC="$f"; break; fi
