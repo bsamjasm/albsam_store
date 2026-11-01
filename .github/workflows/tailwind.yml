@@ -1,0 +1,22 @@
+name: build-tailwind
+on:
+  push:
+    branches: [main]
+    paths: ['index.html', 'admin.html', 'tailwind.config.js', 'tailwind.input.css']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save tailwindcss@3
+      - run: npx tailwindcss -c tailwind.config.js -i tailwind.input.css -o tailwind.css --minify
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add tailwind.css
+          git diff --cached --quiet || (git commit -m "build tailwind.css" && git push)
