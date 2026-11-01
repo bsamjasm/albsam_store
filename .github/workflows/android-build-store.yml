@@ -1,0 +1,252 @@
+name: Build Android Store APK
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Create Android project
+        run: |
+          sudo apt-get install -y imagemagick > /dev/null
+          P=android-app
+          J=$P/app/src/main/java/com/albsam/store
+          R=$P/app/src/main/res
+          mkdir -p $J $R/values
+
+          cat > $P/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "AlbsamStore"
+          include ':app'
+          EOF
+
+          cat > $P/build.gradle <<'EOF'
+          plugins { id 'com.android.application' version '8.5.2' apply false }
+          EOF
+
+          cat > $P/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2g
+          android.useAndroidX=false
+          EOF
+
+          cat > $P/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.albsam.store'
+              compileSdk 34
+              defaultConfig {
+                  applicationId 'com.albsam.store'
+                  minSdk 24
+                  targetSdk 34
+                  versionCode Integer.parseInt(System.getenv('RUN_NUMBER') ?: '1')
+                  versionName '1.0'
+              }
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv('KS_PATH'))
+                      storePassword System.getenv('KS_PASS')
+                      keyAlias System.getenv('KS_ALIAS')
+                      keyPassword System.getenv('KS_PASS')
+                  }
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      signingConfig signingConfigs.release
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > $P/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:label="@string/app_name"
+                  android:icon="@mipmap/ic_launcher"
+                  android:supportsRtl="true"
+                  android:allowBackup="true"
+                  android:usesCleartextTraffic="false"
+                  android:theme="@style/AppTheme">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize"
+                      android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > $R/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">مجمع البسام</string>
+          </resources>
+          EOF
+
+          cat > $R/values/styles.xml <<'EOF'
+          <resources>
+              <color name="store_green">#0A3622</color>
+              <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+                  <item name="android:windowBackground">@color/store_green</item>
+                  <item name="android:statusBarColor">@color/store_green</item>
+                  <item name="android:navigationBarColor">@color/store_green</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > $J/MainActivity.java <<'EOF'
+          package com.albsam.store;
+
+          import android.app.Activity;
+          import android.content.ActivityNotFoundException;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebResourceError;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              static final String HOME = "https://bsamjasm.github.io/albsam_store/";
+              WebView web;
+
+              @Override
+              protected void onCreate(Bundle saved) {
+                  super.onCreate(saved);
+                  web = new WebView(this);
+                  web.setBackgroundColor(0xFF0A3622);
+                  setContentView(web);
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  web.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                          if (!r.isForMainFrame()) return false;
+                          return handle(r.getUrl());
+                      }
+                      @Override
+                      public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
+                          if (r.isForMainFrame()) showOffline();
+                      }
+                  });
+                  web.setWebChromeClient(new WebChromeClient());
+                  if (saved == null || web.restoreState(saved) == null) web.loadUrl(HOME);
+              }
+
+              boolean handle(Uri u) {
+                  String scheme = u.getScheme();
+                  if (scheme == null) return false;
+                  String path = u.getPath() == null ? "" : u.getPath();
+                  if (scheme.equals("https") && "bsamjasm.github.io".equals(u.getHost()) && path.startsWith("/albsam_store")) return false;
+                  if (scheme.equals("about") || scheme.equals("data") || scheme.equals("blob")) return false;
+                  try {
+                      startActivity(new Intent(Intent.ACTION_VIEW, u));
+                  } catch (ActivityNotFoundException e) { }
+                  return true;
+              }
+
+              void showOffline() {
+                  String html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>"
+                      + "<body style='margin:0;background:#0a3622;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;direction:rtl'>"
+                      + "<div style='font-size:42px'>📡</div>"
+                      + "<h3>لا يوجد اتصال بالإنترنت</h3>"
+                      + "<p style='opacity:.8'>تأكد من الاتصال ثم أعد المحاولة</p>"
+                      + "<button onclick=\"location.href='" + HOME + "'\" style='background:#fbbf24;color:#0a3622;border:0;border-radius:12px;padding:12px 28px;font-size:16px;font-weight:bold'>إعادة المحاولة</button>"
+                      + "</body></html>";
+                  web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (web.canGoBack()) web.goBack(); else super.onBackPressed();
+              }
+
+              @Override
+              protected void onSaveInstanceState(Bundle out) {
+                  super.onSaveInstanceState(out);
+                  web.saveState(out);
+              }
+          }
+          EOF
+
+          SRC=""
+          for f in apple-touch-icon.png icon-512.png icon-192.png; do
+            if [ -f "$f" ]; then SRC="$f"; break; fi
+          done
+          for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            d=${pair%%:*}; sz=${pair##*:}
+            mkdir -p $R/mipmap-$d
+            if [ -n "$SRC" ]; then
+              convert "$SRC" -resize ${sz}x${sz}^ -gravity center -extent ${sz}x${sz} $R/mipmap-$d/ic_launcher.png
+            else
+              convert -size ${sz}x${sz} xc:'#0a3622' $R/mipmap-$d/ic_launcher.png
+            fi
+          done
+
+      - name: Prepare signing key
+        run: |
+          keytool -genkeypair -v -keystore $RUNNER_TEMP/store.jks -alias albsam -keyalg RSA -keysize 2048 -validity 10000 -storepass albsam2026 -keypass albsam2026 -dname "CN=Albsam Store" > /dev/null
+          echo "KS_PATH=$RUNNER_TEMP/store.jks" >> $GITHUB_ENV
+          echo "KS_PASS=albsam2026" >> $GITHUB_ENV
+          echo "KS_ALIAS=albsam" >> $GITHUB_ENV
+          echo "RUN_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Build APK
+        run: |
+          cd android-app
+          gradle assembleRelease --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../AlbsamStore.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlbsamStore-APK
+          path: AlbsamStore.apk
+
+      - name: Publish download link
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: store-apk
+          name: تطبيق مجمع البسام (أندرويد)
+          body: حمّل الملف AlbsamStore.apk وثبّته على جوال أندرويد.
+          files: AlbsamStore.apk
+
+      - name: Show link
+        run: |
+          echo "رابط التحميل: https://github.com/${{ github.repository }}/releases/download/store-apk/AlbsamStore.apk" >> $GITHUB_STEP_SUMMARY
