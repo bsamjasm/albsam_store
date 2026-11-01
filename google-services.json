@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "317494079350",
+    "firebase_url": "https://albsam-store-default-rtdb.firebaseio.com",
+    "project_id": "albsam-store",
+    "storage_bucket": "albsam-store.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:317494079350:android:eb19cca470564b4c4b5457",
+        "android_client_info": {
+          "package_name": "com.albsam.store"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHawBOm1Sr4thT11GIWdWcqZsqtZPM5EU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
