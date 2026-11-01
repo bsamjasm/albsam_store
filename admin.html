@@ -1309,6 +1309,7 @@
                 return;
             }
             await db.ref('products/' + id).update({ status: available ? 'غير متوفر' : 'متوفر' });
+            if (!available && typeof fcmWait === 'function' && fcmAvail(Object.assign({}, product, { status: 'متوفر' }))) fcmWait(product);
             showToast(`تم تحديث حالة "${product.name}"`);
         }
 
@@ -1716,6 +1717,7 @@
                 const _pv = products.find(x => x.id === id);
                 if (_pv && Number(_pv.price) !== price) logAct('تغيير سعر ' + name + ': ' + _pv.price + ' ← ' + price);
                 await db.ref('products/' + id).update(productData);
+                if (_pv && typeof fcmWait === 'function' && !fcmAvail(_pv) && fcmAvail(productData)) fcmWait(productData);
                 if (costRaw !== '' && Number(costRaw) >= 0) await db.ref('costs/' + id).set(Number(costRaw));
                 else await db.ref('costs/' + id).remove();
                 showToast(optionsArr.length ? `تم الحفظ (${optionsArr.length} خيارات للزبون)` : "تم الحفظ في السحابة بنجاح!");
@@ -1901,6 +1903,7 @@
                 }
                 await db.ref('orders/' + id).update(upd);
                 if (o.trackCode) await db.ref('tracking/' + o.trackCode + '/status').set(status);
+                if (o.trackCode && status !== 'جديد' && typeof fcmOrder === 'function') fcmOrder(o, status);
                 if (status === 'ملغي' && prev !== 'ملغي' && !o.restocked) {
                     await adjustStock(o.items, +1);
                     await db.ref('orders/' + id).update({ restocked: true });
@@ -3443,7 +3446,7 @@ const X_FEATS = [
         <h4 class="font-bold text-slate-800 text-sm">📣 إرسال عرض لمن ثبّت التطبيق</h4>
         <input id="push-title" type="text" maxlength="60" placeholder="عنوان الإشعار" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
         <textarea id="push-body" rows="2" maxlength="160" placeholder="نص الإشعار" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"></textarea>
-        <p class="text-[11px] text-slate-400">يصل للزبائن خلال 15 دقيقة تقريباً.</p>
+        <p class="text-[11px] text-slate-400">يصل فوراً إذا ضبطت مفتاح الإشعارات الفورية (في الإعدادات)، وإلا خلال 15 دقيقة تقريباً.</p>
         <button type="button" onclick="xSendPush()" class="w-full bg-amber-400 text-store-dark text-xs font-black py-2.5 rounded-xl cursor-pointer">إرسال الإشعار</button>`;
     const add = () => { const t = document.getElementById('tab-settings'); if (t && !document.getElementById('app-ver')) { t.appendChild(card); xFillFeats(); xLayApply(); } };
     document.addEventListener('DOMContentLoaded', () => setTimeout(add, 300)); setTimeout(add, 700);
@@ -3470,7 +3473,9 @@ async function xSaveAppUpd() {
 async function xSendPush() {
     const title = document.getElementById('push-title').value.trim(), body = document.getElementById('push-body').value.trim();
     if (!title || !body) { showToast('اكتب العنوان والنص'); return; }
-    await db.ref('settings/push').set({ id: String(Date.now()), title, body });
+    const pid = String(Date.now());
+    await db.ref('settings/push').set({ id: pid, title, body });
+    if (typeof fcmSend === 'function' && fcmSA()) fcmSend('offers', { type: 'offer', id: pid, title, body }).then(ok => { if (ok) showToast('وصل فوراً للمشتركين ⚡'); });
     document.getElementById('push-title').value = ''; document.getElementById('push-body').value = '';
     showToast('تم إرسال الإشعار');
 }
@@ -3578,6 +3583,121 @@ xRenderStats = function () {
 const _xShowTabL = showTab; showTab = function (n) { _xShowTabL(n); if (n === 'stats') xStApply(); };
 db.ref('adminLayoutStats2').once('value').then(sn => { const v = sn.val(); if (v && v.order) { xStLay = { order: v.order }; try { localStorage.setItem(X_ST_KEY, JSON.stringify(xStLay)); } catch (e) { } xStApply(); } }).catch(() => { });
 setTimeout(xStApply, 900);
+</script>
+<script>
+// ===================== الإشعارات الفورية عبر Firebase Cloud Messaging =====================
+const FCM_KEY = 'albsam_fcm_sa';
+function fcmSA() { try { return JSON.parse(localStorage.getItem(FCM_KEY) || 'null'); } catch (e) { return null; } }
+let _fcmTok = null;
+function fcmB64u(buf) {
+    const b = new Uint8Array(buf); let s = '';
+    for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function fcmAccessToken() {
+    const sa = fcmSA();
+    if (!sa || !sa.private_key) throw new Error('لا يوجد مفتاح');
+    if (_fcmTok && _fcmTok.exp > Date.now() + 60000) return _fcmTok.t;
+    const enc = new TextEncoder();
+    const iat = Math.floor(Date.now() / 1000);
+    const head = fcmB64u(enc.encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })));
+    const claim = fcmB64u(enc.encode(JSON.stringify({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging', aud: 'https://oauth2.googleapis.com/token', iat, exp: iat + 3600 })));
+    const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+    const der = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
+    const key = await crypto.subtle.importKey('pkcs8', der.buffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(head + '.' + claim));
+    const jwt = head + '.' + claim + '.' + fcmB64u(sig);
+    const r = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=' + encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer') + '&assertion=' + jwt
+    });
+    const d = await r.json();
+    if (!d.access_token) throw new Error(d.error_description || d.error || 'فشل الحصول على التصريح');
+    _fcmTok = { t: d.access_token, exp: Date.now() + (d.expires_in || 3600) * 1000 };
+    return _fcmTok.t;
+}
+// يرسل رسالة بيانات لقناة (topic) ويعيد true عند القبول
+async function fcmSend(topic, data, silent) {
+    const sa = fcmSA();
+    if (!sa) return false;
+    try {
+        const tok = await fcmAccessToken();
+        const d = {}; Object.keys(data).forEach(k => { d[k] = String(data[k]); });
+        const r = await fetch('https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send', {
+            method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: { topic, data: d, android: { priority: 'HIGH', ttl: '86400s' } } })
+        });
+        if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+        return true;
+    } catch (e) {
+        console.error('FCM', e);
+        if (!silent) showToast('تعذّر الإرسال الفوري، سيصل بالفحص الدوري');
+        return false;
+    }
+}
+function fcmMsgFor(st) {
+    if (st === 'قيد التجهيز') return 'قيد التجهيز الآن';
+    if (st === 'خرج للتوصيل') return 'خرج للتوصيل 🚚';
+    if (st === 'تم التسليم') return 'تم التسليم ✅';
+    if (st === 'ملغي') return 'تم إلغاؤه';
+    return st;
+}
+function fcmOrder(o, status) {
+    if (!fcmSA() || !o || !o.trackCode) return;
+    const n = o.orderNo || String(o.id).slice(-6);
+    fcmSend('o_' + o.trackCode, { type: 'order', code: o.trackCode, n, status, title: 'حالة الطلب', body: 'طلبك #' + n + ': ' + fcmMsgFor(status) }, true);
+}
+function fcmAvail(p) {
+    if (!p) return false;
+    if (p.status === 'غير متوفر') return false;
+    if (p.hidden === true || p.hidden === 'true') return false;
+    if (p.stock !== null && p.stock !== undefined && p.stock !== '' && Number(p.stock) <= 0) return false;
+    return true;
+}
+function fcmWait(p) {
+    if (!fcmSA() || !p) return;
+    fcmSend('w_' + p.id, { type: 'wait', id: p.id, title: 'توفر المنتج', body: 'توفر الآن: ' + p.name }, true);
+}
+// ---------- بطاقة الإعدادات ----------
+function fcmStatus() {
+    const el = document.getElementById('fcm-status'); if (!el) return;
+    const sa = fcmSA();
+    el.textContent = sa ? '✅ المفتاح محفوظ على هذا الجهاز (المشروع: ' + sa.project_id + ')' : '⚠️ غير مضبوط: الإشعارات تصل بالفحص الدوري كل 15 دقيقة';
+    el.className = 'text-[11px] font-bold ' + (sa ? 'text-emerald-700' : 'text-amber-600');
+}
+async function fcmSaveKey() {
+    const ta = document.getElementById('fcm-json');
+    let sa;
+    try { sa = JSON.parse(ta.value.trim()); } catch (e) { showToast('المحتوى ليس JSON صحيحاً'); return; }
+    if (!sa.project_id || !sa.client_email || !sa.private_key) { showToast('هذا ليس ملف مفتاح الخدمة (Service account)'); return; }
+    try { localStorage.setItem(FCM_KEY, JSON.stringify({ project_id: sa.project_id, client_email: sa.client_email, private_key: sa.private_key })); } catch (e) { showToast('تعذّر الحفظ في المتصفح'); return; }
+    _fcmTok = null; ta.value = '';
+    try { await fcmAccessToken(); showToast('تم حفظ المفتاح والتحقق منه ✅'); }
+    catch (e) { showToast('حُفظ المفتاح لكن التحقق فشل: ' + e.message); }
+    fcmStatus();
+}
+function fcmDelKey() { try { localStorage.removeItem(FCM_KEY); } catch (e) { } _fcmTok = null; fcmStatus(); showToast('حُذف المفتاح من هذا الجهاز'); }
+async function fcmTest() {
+    if (!fcmSA()) { showToast('ألصق المفتاح أولاً'); return; }
+    const ok = await fcmSend('albsam_test', { type: 'offer', id: 'test' + Date.now(), title: 'تجربة', body: 'اختبار الإشعارات' }, true);
+    showToast(ok ? 'نجح الاتصال بـ Firebase ✅' : 'فشل الاتصال، افتح الكونسول لرؤية السبب');
+}
+(function () {
+    const card = document.createElement('div');
+    card.id = 'fcm-card';
+    card.className = 'bg-white rounded-2xl border border-slate-200/85 shadow-sm p-4 space-y-3';
+    card.innerHTML = `<h4 class="font-bold text-slate-800 text-sm">⚡ الإشعارات الفورية (Firebase)</h4>
+        <p id="fcm-status"></p>
+        <textarea id="fcm-json" rows="4" dir="ltr" placeholder="ألصق هنا محتوى ملف مفتاح الخدمة (JSON) كاملاً" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono"></textarea>
+        <div class="flex gap-2">
+            <button type="button" onclick="fcmSaveKey()" class="flex-1 bg-store-dark text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">حفظ المفتاح</button>
+            <button type="button" onclick="fcmTest()" class="flex-1 bg-amber-400 text-store-dark text-xs font-black py-2.5 rounded-xl cursor-pointer">اختبار</button>
+            <button type="button" onclick="fcmDelKey()" class="px-4 bg-rose-50 text-rose-600 text-xs font-bold py-2.5 rounded-xl cursor-pointer">حذف</button>
+        </div>
+        <p class="text-[11px] text-slate-400">المفتاح يُحفظ في هذا المتصفح فقط ولا يُرفع لأي مكان. ألصقه مرة في كل جهاز تستخدم منه اللوحة.</p>`;
+    const add = () => { const t = document.getElementById('tab-settings'); if (t && !document.getElementById('fcm-card')) { t.appendChild(card); fcmStatus(); } };
+    document.addEventListener('DOMContentLoaded', () => setTimeout(add, 400)); setTimeout(add, 900);
+})();
 </script>
 </body>
 </html>
