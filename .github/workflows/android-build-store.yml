@@ -45,16 +45,22 @@ jobs:
           EOF
 
           cat > $P/build.gradle <<'EOF'
-          plugins { id 'com.android.application' version '8.5.2' apply false }
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+              id 'com.google.gms.google-services' version '4.4.2' apply false
+          }
           EOF
 
           cat > $P/gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2g
-          android.useAndroidX=false
+          android.useAndroidX=true
           EOF
 
           cat > $P/app/build.gradle <<'EOF'
-          plugins { id 'com.android.application' }
+          plugins {
+              id 'com.android.application'
+              id 'com.google.gms.google-services'
+          }
           android {
               namespace 'com.albsam.store'
               compileSdk 34
@@ -83,6 +89,10 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
+          }
+          dependencies {
+              implementation platform('com.google.firebase:firebase-bom:33.1.2')
+              implementation 'com.google.firebase:firebase-messaging'
           }
           EOF
 
@@ -130,6 +140,11 @@ jobs:
                       android:name=".StatusJob"
                       android:permission="android.permission.BIND_JOB_SERVICE"
                       android:exported="false" />
+                  <service android:name=".PushService" android:exported="false">
+                      <intent-filter>
+                          <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                      </intent-filter>
+                  </service>
               </application>
           </manifest>
           EOF
@@ -403,6 +418,7 @@ jobs:
                               }
                               sp.edit().putString("orders", nw.toString()).apply();
                               WidgetProvider.refresh(MainActivity.this);
+                              Topics.sync(MainActivity.this);
                           } catch (Exception e) { }
                       }
                       @android.webkit.JavascriptInterface
@@ -414,6 +430,7 @@ jobs:
                           try {
                               new JSONObject(json);
                               getSharedPreferences("albsam", Context.MODE_PRIVATE).edit().putString("flags", json).apply();
+                              Topics.sync(MainActivity.this);
                           } catch (Exception e) { }
                       }
                       @android.webkit.JavascriptInterface
@@ -469,6 +486,7 @@ jobs:
                           try {
                               new JSONArray(json);
                               getSharedPreferences("albsam", Context.MODE_PRIVATE).edit().putString("waits", json).apply();
+                              Topics.sync(MainActivity.this);
                           } catch (Exception e) { }
                       }
                       @android.webkit.JavascriptInterface
@@ -490,6 +508,7 @@ jobs:
                   if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
                       requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
                   }
+                  Topics.sync(this);
                   try {
                       JobScheduler js = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
                       JobInfo info = new JobInfo.Builder(1001, new ComponentName(this, StatusJob.class))
@@ -804,6 +823,174 @@ jobs:
               }
           }
           EOF
+          cat > $J/Topics.java <<'EOF'
+          package com.albsam.store;
+
+          import android.content.Context;
+          import android.content.SharedPreferences;
+          import com.google.android.gms.tasks.OnCompleteListener;
+          import com.google.android.gms.tasks.Task;
+          import com.google.firebase.messaging.FirebaseMessaging;
+          import java.util.HashSet;
+          import java.util.Set;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          public class Topics {
+              static boolean isFinal(String s) {
+                  return s.equals("تم التسليم") || s.equals("ملغي") || s.equals("مرتجع");
+              }
+
+              static synchronized Set<String> load(Context c) {
+                  Set<String> s = new HashSet<String>();
+                  String saved = c.getSharedPreferences("albsam", Context.MODE_PRIVATE).getString("topics", "");
+                  if (saved.length() > 0) {
+                      for (String t : saved.split(",")) { if (t.length() > 0) s.add(t); }
+                  }
+                  return s;
+              }
+
+              static synchronized void mark(Context c, String topic, boolean add) {
+                  Set<String> s = load(c);
+                  if (add) s.add(topic); else s.remove(topic);
+                  StringBuilder sb = new StringBuilder();
+                  for (String t : s) { if (sb.length() > 0) sb.append(','); sb.append(t); }
+                  c.getSharedPreferences("albsam", Context.MODE_PRIVATE).edit().putString("topics", sb.toString()).apply();
+              }
+
+              // يضبط اشتراكات الإشعارات الفورية: العروض + كل طلب جارٍ + كل منتج ينتظر توفره
+              static void sync(final Context ctx) {
+                  try {
+                      final Context c = ctx.getApplicationContext();
+                      SharedPreferences sp = c.getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                      JSONObject fl = new JSONObject(sp.getString("flags", "{}"));
+                      Set<String> want = new HashSet<String>();
+                      if (fl.optBoolean("offers", true)) want.add("offers");
+                      if (fl.optBoolean("orders", true)) {
+                          JSONArray a = new JSONArray(sp.getString("orders", "[]"));
+                          for (int i = 0; i < a.length(); i++) {
+                              JSONObject o = a.getJSONObject(i);
+                              String code = o.optString("c");
+                              if (code.matches("[A-Za-z0-9]+") && !isFinal(o.optString("s", ""))) want.add("o_" + code);
+                          }
+                      }
+                      if (fl.optBoolean("waits", true)) {
+                          JSONArray w = new JSONArray(sp.getString("waits", "[]"));
+                          for (int i = 0; i < w.length(); i++) {
+                              String id = w.getJSONObject(i).optString("i");
+                              if (id.matches("[0-9]+")) want.add("w_" + id);
+                          }
+                      }
+                      Set<String> have = load(c);
+                      FirebaseMessaging fm = FirebaseMessaging.getInstance();
+                      for (final String t : want) {
+                          if (have.contains(t)) continue;
+                          fm.subscribeToTopic(t).addOnCompleteListener(new OnCompleteListener<Void>() {
+                              public void onComplete(Task<Void> task) { if (task.isSuccessful()) mark(c, t, true); }
+                          });
+                      }
+                      for (final String t : have) {
+                          if (want.contains(t)) continue;
+                          fm.unsubscribeFromTopic(t).addOnCompleteListener(new OnCompleteListener<Void>() {
+                              public void onComplete(Task<Void> task) { if (task.isSuccessful()) mark(c, t, false); }
+                          });
+                      }
+                  } catch (Exception e) { }
+              }
+          }
+          EOF
+          cat > $J/PushService.java <<'EOF'
+          package com.albsam.store;
+
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.os.Build;
+          import com.google.firebase.messaging.FirebaseMessagingService;
+          import com.google.firebase.messaging.RemoteMessage;
+          import java.util.Map;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          public class PushService extends FirebaseMessagingService {
+              boolean flag(String k) {
+                  try {
+                      SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                      return new JSONObject(sp.getString("flags", "{}")).optBoolean(k, true);
+                  } catch (Exception e) { return true; }
+              }
+
+              @Override
+              public void onNewToken(String token) { }
+
+              @Override
+              public void onMessageReceived(RemoteMessage m) {
+                  try {
+                      Map<String, String> d = m.getData();
+                      String type = d.get("type");
+                      if (type == null) return;
+                      SharedPreferences sp = getSharedPreferences("albsam", Context.MODE_PRIVATE);
+                      String title = d.get("title") == null ? "مجمع البسام" : d.get("title");
+                      String body = d.get("body") == null ? "" : d.get("body");
+                      if (type.equals("offer")) {
+                          String id = d.get("id");
+                          if (id != null && id.length() > 0) {
+                              if (id.equals(sp.getString("lastPush", ""))) return;
+                              sp.edit().putString("lastPush", id).apply();
+                          }
+                          if (flag("offers")) notifyUser(title, body, 5000);
+                      } else if (type.equals("order")) {
+                          String code = d.get("code");
+                          String st = d.get("status");
+                          if (code == null || st == null) return;
+                          JSONArray arr = new JSONArray(sp.getString("orders", "[]"));
+                          boolean known = false, same = false;
+                          for (int i = 0; i < arr.length(); i++) {
+                              JSONObject o = arr.getJSONObject(i);
+                              if (code.equals(o.optString("c"))) {
+                                  known = true;
+                                  if (st.equals(o.optString("s", ""))) same = true; else o.put("s", st);
+                              }
+                          }
+                          if (known && same) return;
+                          if (known) sp.edit().putString("orders", arr.toString()).apply();
+                          WidgetProvider.refresh(this);
+                          if (flag("orders") && !st.equals("جديد")) notifyUser(title, body, 2000 + (code.hashCode() & 255));
+                          Topics.sync(this);
+                      } else if (type.equals("wait")) {
+                          String id = d.get("id");
+                          if (id == null || !id.matches("[0-9]+")) return;
+                          String notified = "," + sp.getString("notified", "") + ",";
+                          if (notified.contains("," + id + ",")) return;
+                          notified = notified + id + ",";
+                          sp.edit().putString("notified", notified.replaceAll("^,|,$", "")).apply();
+                          if (flag("waits")) notifyUser(title, body, 3000 + (int) (Long.parseLong(id) % 1000));
+                      }
+                  } catch (Exception e) { }
+              }
+
+              void notifyUser(String title, String text, int id) {
+                  NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                  if (nm == null) return;
+                  if (Build.VERSION.SDK_INT >= 26) {
+                      nm.createNotificationChannel(new NotificationChannel("orders", "إشعارات المتجر", NotificationManager.IMPORTANCE_HIGH));
+                  }
+                  Intent in = new Intent(this, MainActivity.class);
+                  PendingIntent pi = PendingIntent.getActivity(this, id, in, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+                  Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, "orders") : new Notification.Builder(this);
+                  b.setSmallIcon(R.mipmap.ic_launcher)
+                      .setContentTitle(title)
+                      .setContentText(text)
+                      .setAutoCancel(true)
+                      .setContentIntent(pi);
+                  nm.notify(id, b.build());
+              }
+          }
+          EOF
           SRC=""
           for f in apple-touch-icon.png icon-512.png icon-192.png; do
             if [ -f "$f" ]; then SRC="$f"; break; fi
@@ -817,6 +1004,14 @@ jobs:
               convert -size ${sz}x${sz} xc:'#0a3622' $R/mipmap-$d/ic_launcher.png
             fi
           done
+
+      - name: Add Firebase config
+        run: |
+          if [ ! -f google-services.json ]; then
+            echo "الملف google-services.json غير موجود في المستودع (الصفحة الرئيسية بجانب index.html)"
+            exit 1
+          fi
+          cp google-services.json android-app/app/google-services.json
 
       - name: Prepare signing key
         run: |
