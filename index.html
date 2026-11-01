@@ -219,6 +219,12 @@
             <div id="best-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6"></div>
         </section>
 
+        <!-- شاهدتها مؤخراً -->
+        <section id="recent-section" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-8 hidden">
+            <h2 class="text-lg sm:text-2xl font-black text-store-dark mb-4"><i class="fa-solid fa-clock-rotate-left text-amber-500 ml-1"></i> شاهدتها مؤخراً</h2>
+            <div id="recent-grid" class="flex gap-3 overflow-x-auto pb-2 no-scrollbar"></div>
+        </section>
+
         <!-- قسم المنتجات -->
         <section id="products" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
             <div class="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-1.5">
@@ -231,6 +237,7 @@
 
             <!-- البحث والترتيب -->
             <div class="flex items-center gap-2 mb-4">
+                <button id="scan-btn" type="button" onclick="openScan()" class="hidden bg-store-dark text-white w-9 h-9 rounded-xl cursor-pointer flex-shrink-0" title="مسح باركود"><i class="fa-solid fa-barcode"></i></button>
                 <div class="relative flex-1">
                     <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                     <input id="search-input" type="text" oninput="onSearch(this.value)" data-i18n-ph="search_ph" placeholder="ابحث عن منتج..." class="w-full bg-white border border-slate-200 rounded-xl pr-10 pl-3 py-1.5 text-xs sm:text-sm focus:outline-none focus:border-store-dark">
@@ -316,6 +323,13 @@
                         <button onclick="applyCoupon()" class="bg-store-dark hover:bg-emerald-950 text-white text-sm font-bold px-5 rounded-lg cursor-pointer" data-i18n="apply">تطبيق</button>
                     </div>
                     <p id="coupon-msg" class="hidden text-[11px] font-semibold"></p>
+                    <div id="addr-box" class="space-y-2">
+                        <div id="addr-list" class="flex flex-wrap gap-1.5"></div>
+                        <div class="flex gap-2">
+                            <input id="addr-label" type="text" maxlength="20" placeholder="اسم العنوان (بيت، عمل...)" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 h-10 text-sm focus:outline-none focus:border-store-dark">
+                            <button type="button" onclick="saveAddr()" class="bg-amber-400 hover:bg-amber-300 text-store-dark text-xs font-black px-3 rounded-lg cursor-pointer whitespace-nowrap">💾 حفظ العنوان</button>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-2 gap-2">
                         <input type="tel" id="customer-phone" data-i18n-ph="phone" placeholder="رقم الهاتف" class="min-w-0 bg-white border border-slate-200 rounded-lg px-3 h-11 text-sm focus:outline-none focus:border-store-dark">
                         <select id="customer-gov" onchange="updateCartUI()" class="min-w-0 bg-white border border-slate-200 rounded-lg px-2 h-11 text-sm focus:outline-none focus:border-store-dark"></select>
@@ -380,6 +394,11 @@
             <a href="https://t.me/albsam_store" target="_blank" rel="noopener" title="Telegram" class="w-10 h-10 rounded-full bg-store-dark text-white hover:bg-amber-400 hover:text-store-dark flex items-center justify-center transition-all"><i class="fa-brands fa-telegram text-base"></i></a>
         </div>
         <p dir="ltr" class="font-semibold mb-2">@albsam_store</p>
+        <div id="call-box" class="hidden mb-3 px-4">
+            <a id="call-link" href="#" class="inline-flex items-center gap-2 bg-store-dark text-white text-xs font-black px-4 py-2 rounded-full"><i class="fa-solid fa-phone"></i> اتصل بنا</a>
+            <p id="call-hours" class="text-[11px] font-semibold text-slate-500 mt-1.5"></p>
+        </div>
+        <button id="share-store-btn" onclick="shareStore()" class="mb-3 bg-amber-400 hover:bg-amber-300 text-store-dark text-xs font-black px-4 py-2 rounded-full cursor-pointer">📤 شارك المتجر مع أصدقائك</button>
         © مجمع البسام
         <div id="apk-card" class="hidden mx-4 mt-4 hero-pattern rounded-2xl border-2 border-amber-400 text-white p-4 relative overflow-hidden max-w-sm sm:mx-auto text-right">
             <div class="relative z-10 flex items-center gap-3">
@@ -756,8 +775,9 @@
                 document.getElementById('announce').classList.toggle('hidden', s.announceOn === false || s.announceOn === 'false');
             });
 
-            setTimeout(() => { splashMin = true; trySplash(); }, 1000);
-            setTimeout(hideSplash, 1000);
+            const _spMs = Math.max(300, Math.min(8000, Number(lsGet('albsam_splash_ms', '1000')) || 1000));
+            setTimeout(() => { splashMin = true; trySplash(); }, _spMs);
+            setTimeout(hideSplash, _spMs);
             window.addEventListener('scroll', () => {
                 const tt = document.getElementById('to-top'), show = window.scrollY > 400;
                 tt.classList.toggle('hidden', !show); tt.classList.toggle('flex', show);
@@ -899,8 +919,8 @@
                                 <span class="text-[10px] sm:text-xs text-slate-400 line-through block">${money(oldPrice)}</span>
                                 <span class="text-xs sm:text-base font-black text-store-dark">${money(currentPrice)}</span>
                             </div>
-                            <button onclick="${available ? `addToCart(${product.id})` : `openNotify(${product.id})`}" class="${available ? 'bg-amber-400 hover:bg-amber-300 text-store-dark' : 'bg-white border border-amber-400 text-amber-700'} cursor-pointer w-full sm:w-auto px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-xs transition-all shadow-sm text-center">
-                                ${esc(available ? t('add_cart') : ((typeof notifyDone === 'function' && notifyDone(product.id)) ? '✅ تم تسجيل طلبك، سنُعلمك' : '🔔 أبلغني عند التوفر'))}
+                            <button onclick="${available ? `addToCart(${product.id})` : (ft('notify') ? `openNotify(${product.id})` : '')}" class="${available ? 'bg-amber-400 hover:bg-amber-300 text-store-dark' : 'bg-white border border-amber-400 text-amber-700'} cursor-pointer w-full sm:w-auto px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-xs transition-all shadow-sm text-center">
+                                ${esc(available ? t('add_cart') : (!ft('notify') ? t('unavail') : (typeof notifyDone === 'function' && notifyDone(product.id)) ? '✅ تم تسجيل طلبك، سنُعلمك' : '🔔 أبلغني عند التوفر'))}
                             </button>
                         </div>
                     </div>
@@ -1020,7 +1040,11 @@
             if (!p) return;
             const url = location.origin + location.pathname + '?p=' + id;
             const text = `${p.name} — ${money(effPrice(p))}`;
-            if (navigator.share) {
+            if (window.AlbsamApp && window.AlbsamApp.shareImg && ft('shareImg') && thumbOf(p)) {
+                window.AlbsamApp.shareImg(text + '\n' + url, thumbOf(p));
+            } else if (window.AlbsamApp && window.AlbsamApp.share) {
+                window.AlbsamApp.share(text + '\n' + url);
+            } else if (navigator.share) {
                 navigator.share({ title: p.name, text, url }).catch(() => { });
             } else {
                 window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank');
@@ -1602,7 +1626,10 @@
 async function pasteTrackCode() {
             const input = document.getElementById('track-code');
             try {
-                const txt = (await navigator.clipboard.readText() || '').trim();
+                let raw = '';
+                if (window.AlbsamApp && typeof window.AlbsamApp.paste === 'function') raw = window.AlbsamApp.paste();
+                else raw = await navigator.clipboard.readText();
+                const txt = (raw || '').trim();
                 if (txt) { input.value = txt.toUpperCase(); input.focus(); }
                 else showToast('لا يوجد نص منسوخ');
             } catch (e) {
@@ -2095,6 +2122,7 @@ async function pasteTrackCode() {
         window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; maybeShowInstall(); });
         window.addEventListener('appinstalled', () => { const b = document.getElementById('install-bar'); if (b) b.remove(); });
         function maybeShowInstall() {
+            return; // تم إلغاء دعوة التثبيت التلقائية
             if (!installReady || !pwaPromptOn || document.getElementById('install-bar')) return;
             if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) return;
             if (Number(lsGet('albsam_install_dismiss', '0')) > Date.now()) return;
@@ -2211,6 +2239,7 @@ function nmTabs(pfx, dark) {
     return `<style>.nm-on{background:#fbbf24!important;color:#0a3622!important}</style><div class="flex gap-1.5 mb-2">${Object.keys(NM_TYPES).map(k => `<button type="button" data-nmt="${k}" onclick="nmPick('${k}','${pfx}')" class="${base}${k === nmType ? ' nm-on' : ''}">${NM_TYPES[k][0]}</button>`).join('')}</div>`;
 }
 function notifyBox(p) {
+    if (!ft('notify')) return '';
     if (notifyDone(p.id)) return `<div class="bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl px-3 py-2 mb-2">✅ سنُعلمك عند توفر هذا المنتج</div>`;
     const sv = nmSaved(); nmType = sv ? sv.type : 'whatsapp';
     return `<div class="mb-2">${nmTabs('nm', false)}<div class="flex gap-2"><input id="nm-phone" type="tel" dir="ltr" placeholder="${NM_TYPES[nmType][1]}" value="${esc(sv ? sv.value : '')}" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-store-dark"><button onclick="notifyMe(${p.id})" class="bg-amber-400 hover:bg-amber-300 text-store-dark text-xs font-black px-3 rounded-xl cursor-pointer whitespace-nowrap">🔔 أبلغني</button></div></div>`;
@@ -2341,6 +2370,214 @@ function renderApkCard(s) {
     document.getElementById('apk-link').href = url;
     c.classList.toggle('hidden', !(on && /android/i.test(ua) && !/; wv\)/.test(ua)));
 }
+</script>
+<script>
+// ===================== ميزات تطبيق الأندرويد =====================
+function shareStore() {
+    const url = location.origin + location.pathname, text = 'تسوّق من متجر مجمع البسام';
+    if (window.AlbsamApp && window.AlbsamApp.share) window.AlbsamApp.share(text + '\n' + url);
+    else if (navigator.share) navigator.share({ title: 'مجمع البسام', text, url }).catch(() => { });
+    else window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank');
+}
+// مزامنة طلبات الزبون مع التطبيق (إشعارات تغيّر الحالة)
+function syncOrdersToApp() {
+    try {
+        if (!(window.AlbsamApp && window.AlbsamApp.setOrders)) return;
+        const mine = lsJson(ORD_KEY, []).slice(0, 10).map(o => ({ c: o.code, n: o.orderNo }));
+        window.AlbsamApp.setOrders(JSON.stringify(mine));
+    } catch (e) { }
+}
+setTimeout(syncOrdersToApp, 3000); setInterval(syncOrdersToApp, 15000);
+// اختصارات الأيقونة (تتبع طلبي / السلة)
+(function () {
+    const o = new URLSearchParams(location.search).get('open');
+    if (!o) return;
+    setTimeout(() => { try { if (o === 'track') openTrack(); else if (o === 'cart') toggleCart(); } catch (e) { } }, 1800);
+})();
+// السحب للأسفل لتحديث الصفحة (داخل التطبيق فقط)
+if (window.AlbsamApp) {
+    let y0 = null, ind = null;
+    const blocked = () => document.documentElement.style.overflow === 'hidden' || !document.getElementById('track-modal').classList.contains('hidden');
+    document.addEventListener('touchstart', e => { y0 = (ft('ptr') && window.scrollY <= 0 && !blocked() && e.touches.length === 1) ? e.touches[0].clientY : null; }, { passive: true });
+    document.addEventListener('touchmove', e => {
+        if (y0 === null) return;
+        const d = e.touches[0].clientY - y0;
+        if (d > 10) {
+            if (!ind) { ind = document.createElement('div'); ind.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:90;background:#0a3622;color:#fff;border-radius:999px;padding:6px 14px;font:700 12px sans-serif'; document.body.appendChild(ind); }
+            ind.textContent = d > 90 ? '↻ اترك للتحديث' : '↓ اسحب للتحديث';
+            ind.style.opacity = Math.min(1, d / 60);
+        }
+    }, { passive: true });
+    document.addEventListener('touchend', () => { if (ind) { const ready = ind.textContent.charAt(0) === '↻'; ind.remove(); ind = null; if (ready) location.reload(); } y0 = null; });
+}
+</script>
+<script>
+// ===================== ميزات إضافية للزبائن =====================
+// ---- شاهدتها مؤخراً ----
+const RV_KEY = 'albsam_recent';
+function renderRecent() {
+    const sec = document.getElementById('recent-section'); if (!sec || typeof products === 'undefined') return;
+    const list = lsJson(RV_KEY, []).map(id => products.find(p => p.id === id)).filter(p => p && !isHidden(p)).slice(0, 8);
+    sec.classList.toggle('hidden', list.length === 0 || !ft('recent'));
+    document.getElementById('recent-grid').innerHTML = list.map(p => `<div class="w-40 sm:w-52 flex-shrink-0">${productCard(p)}</div>`).join('');
+}
+(function () {
+    const _op = openProduct;
+    openProduct = function (id) {
+        try { const l = lsJson(RV_KEY, []).filter(x => x !== id); l.unshift(id); lsSet(RV_KEY, JSON.stringify(l.slice(0, 8))); } catch (e) { }
+        _op(id); setTimeout(renderRecent, 400);
+    };
+    const _ra = renderAll;
+    renderAll = function () { _ra(); renderRecent(); };
+})();
+// ---- العناوين المحفوظة ----
+const ADDR_KEY = 'albsam_addrs';
+function renderAddrs() {
+    const box = document.getElementById('addr-list'); if (!box) return;
+    box.innerHTML = lsJson(ADDR_KEY, []).map((a, i) => `<span class="inline-flex items-center bg-white border border-slate-200 rounded-full text-[11px] font-bold text-store-dark"><button type="button" onclick="useAddr(${i})" class="px-3 py-1.5 cursor-pointer">📍 ${esc(a.label)}</button><button type="button" onclick="delAddr(${i})" class="px-2 py-1.5 text-rose-500 cursor-pointer">✕</button></span>`).join('');
+}
+function useAddr(i) {
+    const a = lsJson(ADDR_KEY, [])[i]; if (!a) return;
+    const ph = document.getElementById('customer-phone'), ad = document.getElementById('customer-address'), gv = document.getElementById('customer-gov');
+    if (ph && a.phone) ph.value = a.phone;
+    if (ad) ad.value = a.address || '';
+    if (gv && a.gov && [...gv.options].some(o => o.value === a.gov)) gv.value = a.gov;
+    updateCartUI(); saveCustomerDraft();
+}
+function saveAddr() {
+    const lab = document.getElementById('addr-label').value.trim();
+    const address = document.getElementById('customer-address').value.trim();
+    if (!lab || !address) { showToast('اكتب اسماً للعنوان وعنوان التوصيل أولاً'); return; }
+    const l = lsJson(ADDR_KEY, []).filter(a => a.label !== lab);
+    l.unshift({ label: lab, phone: document.getElementById('customer-phone').value.trim(), address, gov: document.getElementById('customer-gov').value });
+    lsSet(ADDR_KEY, JSON.stringify(l.slice(0, 4)));
+    document.getElementById('addr-label').value = '';
+    renderAddrs(); showToast('تم حفظ العنوان');
+}
+function delAddr(i) { const l = lsJson(ADDR_KEY, []); l.splice(i, 1); lsSet(ADDR_KEY, JSON.stringify(l)); renderAddrs(); }
+(function () { const _tc = toggleCart; toggleCart = function () { _tc(); renderAddrs(); }; })();
+setTimeout(renderAddrs, 800);
+// ---- الاتصال المباشر وأوقات الدوام ----
+db.ref('settings').on('value', sn => {
+    const s = sn.val() || {}, ph = String(s.callPhone || '').replace(/[^\d+]/g, '');
+    const box = document.getElementById('call-box'); if (!box) return;
+    box.classList.toggle('hidden', !ph);
+    document.getElementById('call-link').href = 'tel:' + ph;
+    document.getElementById('call-hours').textContent = s.workHours ? '🕒 ' + s.workHours : '';
+});
+// ---- ترحيب بخصم أول طلب (مرة واحدة) ----
+(function () {
+    let tries = 0;
+    const iv = setInterval(() => {
+        if (++tries > 30) { clearInterval(iv); return; }
+        if (typeof firstDisc === 'undefined' || !firstDisc.on || !(firstDisc.pct > 0)) return;
+        clearInterval(iv);
+        if (!ft('welcome') || lsGet('albsam_welcome', '') || lsJson(ORD_KEY, []).length > 0) return;
+        const sp = document.getElementById('splash');
+        const show = () => {
+            if (sp && !sp.classList.contains('hidden') && sp.style.display !== 'none' && sp.offsetParent !== null) { setTimeout(show, 500); return; }
+            lsSet('albsam_welcome', '1');
+            const d = document.createElement('div');
+            d.className = 'fixed inset-0 z-[96] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4';
+            d.onclick = e => { if (e.target === d) d.remove(); };
+            d.innerHTML = `<div class="hero-pattern text-white rounded-3xl w-full max-w-sm p-6 text-center relative overflow-hidden shadow-2xl border border-emerald-700/50">
+                <button onclick="this.closest('.fixed').remove()" class="absolute top-3 left-3 w-8 h-8 rounded-full bg-white/10 text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+                <div class="text-5xl mb-2">🎁</div>
+                <h3 class="text-xl font-black mb-1">أهلاً بك في مجمع البسام</h3>
+                <p class="text-amber-300 text-3xl font-black my-2">خصم ${firstDisc.pct}%</p>
+                <p class="text-emerald-100/80 text-xs mb-4">على أول طلب لك، يُطبَّق تلقائياً في السلة</p>
+                <button onclick="this.closest('.fixed').remove()" class="w-full bg-amber-400 hover:bg-amber-300 text-store-dark font-black py-3 rounded-xl text-sm cursor-pointer">تسوّق الآن</button>
+            </div>`;
+            document.body.appendChild(d);
+        };
+        setTimeout(show, 1500);
+    }, 1000);
+})();
+// ---- مزامنة قائمة "أبلغني" مع التطبيق ----
+function syncWaitsToApp() {
+    try {
+        if (!(window.AlbsamApp && window.AlbsamApp.setWaits)) return;
+        const l = lsJson(NOTIFY_KEY, []).map(id => { const p = products.find(x => String(x.id) === String(id)); return { i: id, n: p ? p.name : '' }; });
+        window.AlbsamApp.setWaits(JSON.stringify(l));
+    } catch (e) { }
+}
+setTimeout(syncWaitsToApp, 3500); setInterval(syncWaitsToApp, 15000);
+function syncFlagsToApp() { try { if (window.AlbsamApp && window.AlbsamApp.setFlags) window.AlbsamApp.setFlags(JSON.stringify({ orders: ft('pushOrders'), waits: ft('pushWaits'), offers: ft('pushOffers'), badge: ft('badge') })); } catch (e) { } }
+setInterval(syncFlagsToApp, 15000);
+</script>
+<script>
+// ===================== التحكم بالميزات من لوحة الإدارة =====================
+let FT = {};
+function ft(k) { return FT[k] !== false; }
+function applyFeatures() {
+    const g = id => document.getElementById(id);
+    if (g('addr-box')) g('addr-box').classList.toggle('hidden', !ft('addr'));
+    if (g('share-store-btn')) g('share-store-btn').classList.toggle('hidden', !ft('shareStore'));
+    if (g('scan-btn')) g('scan-btn').classList.toggle('hidden', !(ft('scan') && window.AlbsamApp));
+    if (typeof renderRecent === 'function') renderRecent();
+    syncFlagsToApp();
+}
+db.ref('settings').on('value', sn => {
+    const s = sn.val() || {};
+    FT = s.features || {};
+    try { const ms = Math.round(Number(FT.splashSecs) * 1000); lsSet('albsam_splash_ms', String(ms >= 300 ? ms : 1000)); } catch (e) { }
+    applyFeatures();
+    // إشعار تحديث التطبيق
+    try {
+        if (window.AlbsamApp && window.AlbsamApp.version && ft('update') && Number(s.appVersion) > Number(window.AlbsamApp.version())
+            && lsGet('albsam_upd_dismiss', '') !== String(s.appVersion) && !document.getElementById('upd-bar')) {
+            const d = document.createElement('div');
+            d.id = 'upd-bar';
+            d.className = 'fixed top-3 right-3 left-3 z-[97] bg-store-dark text-white shadow-2xl rounded-2xl p-3 flex items-center gap-3';
+            d.innerHTML = `<div class="flex-1 text-xs font-bold leading-relaxed">🆕 يتوفر تحديث جديد للتطبيق${s.appNote ? '<br><span class="font-semibold text-emerald-100/80">' + esc(s.appNote) + '</span>' : ''}</div>${s.appUrl ? '<button data-go class="bg-amber-400 text-store-dark text-xs font-black px-3 py-2 rounded-xl cursor-pointer">تحديث</button>' : ''}<button data-x class="text-white/70 px-1 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>`;
+            const go = d.querySelector('[data-go]'); if (go) go.onclick = () => { location.href = s.appUrl; };
+            d.querySelector('[data-x]').onclick = () => { lsSet('albsam_upd_dismiss', String(s.appVersion)); d.remove(); };
+            document.body.appendChild(d);
+        }
+    } catch (e) { }
+});
+// ---- مسح الباركود بالكاميرا ----
+let scanner = null;
+function loadScanLib() {
+    return new Promise((res, rej) => {
+        if (window.Html5Qrcode) return res();
+        const sc = document.createElement('script');
+        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+        sc.onload = res; sc.onerror = rej; document.head.appendChild(sc);
+    });
+}
+async function openScan() {
+    if (document.getElementById('scan-modal')) return;
+    const d = document.createElement('div');
+    d.id = 'scan-modal';
+    d.className = 'fixed inset-0 z-[98] bg-black/80 flex items-center justify-center p-4';
+    d.innerHTML = `<div class="bg-white rounded-3xl w-full max-w-sm p-4 space-y-3">
+        <div class="flex items-center justify-between"><h3 class="font-black text-store-dark text-sm">امسح باركود المنتج</h3><button onclick="closeScan()" class="w-8 h-8 rounded-full bg-slate-100 cursor-pointer"><i class="fa-solid fa-xmark"></i></button></div>
+        <div id="scan-box" class="rounded-2xl overflow-hidden bg-slate-100 min-h-[220px]"></div>
+        <p id="scan-msg" class="text-[11px] text-center text-slate-500">وجّه الكاميرا نحو الباركود</p></div>`;
+    document.body.appendChild(d);
+    try {
+        await loadScanLib();
+        scanner = new Html5Qrcode('scan-box');
+        await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 160 } }, txt => { closeScan(); handleScan(txt); }, () => { });
+    } catch (e) { const m = document.getElementById('scan-msg'); if (m) m.textContent = 'تعذر تشغيل الكاميرا، تأكد من السماح بالوصول للكاميرا'; }
+}
+function closeScan() {
+    const sc = scanner; scanner = null;
+    const done = () => { const m = document.getElementById('scan-modal'); if (m) m.remove(); };
+    if (sc) { sc.stop().then(() => { try { sc.clear(); } catch (e) { } done(); }).catch(done); } else done();
+}
+function handleScan(txt) {
+    const code = String(txt || '').trim(); if (!code) return;
+    const p = products.find(x => String(x.barcode || '').trim() === code && !isHidden(x));
+    if (p) { openProduct(p.id); return; }
+    const o = lsJson(ORD_KEY, []).find(x => String(x.orderNo) === code || String(x.code).toUpperCase() === code.toUpperCase());
+    if (o) { openTrack(o.code); return; }
+    const si = document.getElementById('search-input');
+    if (si) { si.value = code; onSearch(code); }
+    showToast('لا يوجد منتج بهذا الباركود');
+}
+setTimeout(applyFeatures, 1200);
 </script>
 </body>
 </html>

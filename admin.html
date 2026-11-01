@@ -158,7 +158,7 @@
                 <button id="x-sel-btn" onclick="xToggleSel()" class="bg-white border border-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">تحديد للطباعة</button>
                 <button id="x-print-btn" onclick="xPrintLabels()" class="hidden bg-amber-400 text-store-dark text-xs font-black px-3 py-2 rounded-xl cursor-pointer">عرض الفواتير (0)</button>
             </div>
-            <div id="order-chips" class="flex items-center gap-1.5 overflow-x-auto pb-1"></div>
+            <div id="order-chips" class="flex flex-wrap items-center gap-1.5 pb-1"></div>
             <div id="orders-list" class="space-y-1.5">
                 <p class="text-center text-slate-400 py-6 text-xs">جاري تحميل الطلبات...</p>
             </div>
@@ -335,8 +335,6 @@
                 <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-mobile-screen text-store-dark"></i> تثبيت المتجر كتطبيق</h4>
                 <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer"><input id="set-pwa-on" type="checkbox" class="w-4 h-4"> إظهار دعوة التثبيت للزبائن</label>
                 <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer"><input id="set-hm-on" type="checkbox" class="w-4 h-4"> تفعيل الحركة في الواجهة الرئيسية للمتجر</label>
-                <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer"><input id="set-apk-on" type="checkbox" class="w-4 h-4"> إظهار زر تحميل تطبيق أندرويد (أسفل المتجر)</label>
-                <input id="set-apk-url" type="url" dir="ltr" placeholder="رابط ملف APK (اتركه فارغاً لاستخدام الرابط الافتراضي)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] focus:outline-none focus:border-store-dark">
                 <button type="button" onclick="savePwa()" class="w-full bg-store-dark text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">حفظ</button>
             </div>
 
@@ -500,26 +498,30 @@
                         <label class="block text-xs font-semibold text-slate-600">اسم المنتج</label>
                         <button type="button" id="ai-img-btn" onclick="aiFromImage()" class="text-[11px] font-bold bg-emerald-50 text-store-dark border border-emerald-200 px-2.5 py-1 rounded-lg cursor-pointer"><i class="fa-solid fa-image"></i> اقتراح من الصورة</button>
                     </div>
-                    <input type="text" id="p-name" required placeholder="مثال: شاشة ذكية" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
+                    <input type="text" id="p-name" required placeholder="مثال: شاشة ذكية" class="w-full bg-emerald-50 border border-emerald-300 font-bold text-emerald-900 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">السعر الحالي (د.ع)</label>
-                        <input type="number" id="p-price" required placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
+                        <label class="block text-xs font-semibold text-emerald-800 mb-1">السعر الحالي (د.ع)</label>
+                        <input type="number" id="p-price" required placeholder="0" class="w-full bg-emerald-50 border border-emerald-300 font-bold text-emerald-900 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">القسم</label>
                         <select id="p-category" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark"></select>
                     </div>
                 </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">باركود المنتج (اختياري، للمسح بالكاميرا داخل التطبيق)</label>
+                    <input type="text" id="p-barcode" dir="ltr" placeholder="مثال: 6291003012345" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
+                </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">سعر الشراء (لك فقط)</label>
-                        <input type="number" id="p-cost" min="0" placeholder="لحساب الربح" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
+                        <label class="block text-xs font-semibold text-emerald-800 mb-1">سعر الشراء (لك فقط)</label>
+                        <input type="number" id="p-cost" min="0" placeholder="لحساب الربح" class="w-full bg-emerald-50 border border-emerald-300 font-bold text-emerald-900 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">الكمية في المخزون</label>
-                        <input type="number" id="p-stock" min="0" placeholder="فارغ = بدون تتبع" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
+                        <label class="block text-xs font-semibold text-emerald-800 mb-1">الكمية في المخزون</label>
+                        <input type="number" id="p-stock" min="0" placeholder="فارغ = بدون تتبع" class="w-full bg-emerald-50 border border-emerald-300 font-bold text-emerald-900 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark">
                     </div>
                 </div>
 
@@ -584,8 +586,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">ألوان المنتج (اختياري)</label>
-                    <textarea id="p-options" rows="1" oninput="previewOptions()" placeholder="أحمر، أزرق، أسود" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark"></textarea>
+                    <label class="block text-xs font-semibold text-emerald-800 mb-1">ألوان المنتج (اختياري)</label>
+                    <textarea id="p-options" rows="1" oninput="previewOptions()" placeholder="أحمر، أزرق، أسود" class="w-full bg-emerald-50 border border-emerald-300 font-bold text-emerald-900 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-store-dark"></textarea>
                     <p id="p-options-preview" class="text-[11px] font-bold text-emerald-700 mt-1"></p>
                     <p class="text-[10px] text-slate-400 mt-1">اكتب الألوان مفصولة بفاصلة. اتركه فارغاً إذا لا توجد ألوان. الزبون يختار لوناً واحداً لكل قطعة قبل الإضافة للسلة.</p>
                 </div>
@@ -1578,6 +1580,7 @@
             document.getElementById('p-name').value = '';
             document.getElementById('p-price').value = '';
             document.getElementById('p-cost').value = '';
+            document.getElementById('p-barcode').value = '';
             document.getElementById('p-old-price').value = '';
             document.getElementById('p-offer-end').value = '';
             document.getElementById('p-stock').value = '';
@@ -1600,6 +1603,7 @@
             document.getElementById('p-price').value = product.price;
             const cost = costsMap[product.id];
             document.getElementById('p-cost').value = (cost !== undefined && cost !== null) ? cost : '';
+            document.getElementById('p-barcode').value = product.barcode || '';
             document.getElementById('p-old-price').value = product.oldPrice || '';
             document.getElementById('p-offer-end').value = asCopy ? '' : toLocalInput(product.offerEnd);
             document.getElementById('p-stock').value = hasStock(product) ? product.stock : '';
@@ -1699,6 +1703,7 @@
                 images: formImages.slice(),
                 thumbs: thumbsArr.includes(null) ? null : thumbsArr,
                 description: description || null,
+                barcode: (document.getElementById('p-barcode').value.trim()) || null,
                 options: optionsArr.length ? optionsArr : null
             };
             if (!rawId) {
@@ -1778,8 +1783,8 @@
                 const count = s === 'الكل' ? orders.length : orders.filter(o => o.status === s).length;
                 const active = s === orderFilter;
                 const cls = active
-                    ? "px-3 py-1.5 rounded-xl text-xs font-bold bg-store-dark text-white shadow-sm flex-shrink-0 cursor-pointer"
-                    : "px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-600 flex-shrink-0 cursor-pointer";
+                    ? "px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-store-dark text-white shadow-sm cursor-pointer"
+                    : "px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-white border border-slate-200 text-slate-600 cursor-pointer";
                 return `<button data-s="${esc(s)}" onclick="filterOrders(this.dataset.s)" class="${cls}">${esc(s)} (${count})</button>`;
             }).join('');
             document.getElementById('orders-total-label').textContent = `${orders.length} طلب`;
@@ -1925,16 +1930,16 @@
         function buildInvoiceHtml(o) {
             const items = Array.isArray(o.items) ? o.items : [];
             const rows = items.map(i => `<tr>
-                <td style="padding:7px 4px;border-bottom:1px solid #eee;text-align:right">${esc(i.name)}${i.opts ? ' (' + esc(i.opts) + ')' : ''}</td>
-                <td style="padding:7px 4px;border-bottom:1px solid #eee;text-align:center">${esc(i.quantity)}</td>
-                <td style="padding:7px 4px;border-bottom:1px solid #eee;text-align:left;white-space:nowrap">${formatPrice(Number(i.price) * Number(i.quantity))}</td></tr>`).join('');
+                <td style="padding:7px 4px;border-bottom:1px solid #eee;text-align:right"><div style="display:flex;align-items:center;gap:7px">${xItemImg(i)}<span style="font-size:15px;font-weight:900;line-height:1.4">${esc(i.name)}${i.opts ? ' (' + esc(i.opts) + ')' : ''}</span></div></td>
+                <td style="padding:7px 4px;border-bottom:1px solid #eee;text-align:center;font-size:15px;font-weight:900">${esc(i.quantity)}</td>
+                <td style="padding:7px 4px;border-bottom:1px solid #eee;text-align:left;white-space:nowrap;font-size:14px;font-weight:900">${formatPrice(Number(i.price) * Number(i.quantity))}</td></tr>`).join('');
             const no = esc(o.orderNo || String(o.id).slice(-6));
-            return `<div style="background:#fff;color:#111;padding:18px;font-family:'Cairo',sans-serif;direction:rtl;width:100%;box-sizing:border-box;font-size:12px">
-                <div style="background:#0a3622;color:#fff;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+            return `<div style="background:#fff;color:#111;padding:15px;font-family:'Cairo',sans-serif;direction:rtl;width:100%;box-sizing:border-box;font-size:12px">
+                <div style="background:#0a3622;color:#fff;border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center">
                     <div><div style="font-weight:900;font-size:18px">مجمع البسام</div><div style="font-size:11px;color:#facc15">فاتورة طلب</div></div>
                     <div style="text-align:left;font-size:12px"><div style="font-weight:700">#${no}</div><div>${new Date(o.createdAt).toLocaleString('en-GB')}</div></div>
                 </div>
-                <div style="margin:14px 0;line-height:1.9">
+                <div style="margin:11px 0;line-height:1.55">
                     <div><b>الهاتف:</b> <span dir="ltr">${esc(o.phone)}</span></div>
                     <div><b>العنوان:</b> ${esc(o.governorate ? o.governorate + ' - ' : '')}${esc(o.address)}</div>
                 </div>
@@ -1942,16 +1947,17 @@
                     <thead><tr style="background:#f3f4f6"><th style="padding:7px 4px;text-align:right">المنتج</th><th style="padding:7px 4px;text-align:center">الكمية</th><th style="padding:7px 4px;text-align:left">المبلغ</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
-                <div style="margin-top:12px;line-height:2">
+                <div style="margin-top:10px;line-height:1.65">
                     <div style="display:flex;justify-content:space-between"><span>المجموع الفرعي</span><span>${formatPrice(o.subtotal != null ? o.subtotal : o.total)}</span></div>
                     ${Number(o.discount) > 0 ? `<div style="display:flex;justify-content:space-between;color:#059669"><span>الخصم</span><span>- ${formatPrice(o.discount)}</span></div>` : ''}
                     <div style="display:flex;justify-content:space-between"><span>التوصيل</span><span>${Number(o.shipping) > 0 ? formatPrice(o.shipping) : 'مجاني'}</span></div>
-                    <div style="display:flex;justify-content:space-between;font-weight:900;font-size:15px;color:#0a3622;border-top:2px solid #0a3622;margin-top:6px;padding-top:6px"><span>الإجمالي</span><span>${formatPrice(o.total)}</span></div>
+                    <div style="display:flex;justify-content:space-between;font-weight:900;font-size:15px;color:#0a3622;border-top:2px solid #0a3622;margin-top:5px;padding-top:5px"><span>الإجمالي</span><span>${formatPrice(o.total)}</span></div>
                 </div>
-                <div style="text-align:center;margin-top:16px;color:#6b7280;font-size:11px">شكراً لتسوقكم من مجمع البسام 🌹</div>
-                <div style="text-align:center;margin-top:14px;border-top:1px dashed #cbd5e1;padding-top:12px">
+                <div style="text-align:center;margin-top:13px;color:#6b7280;font-size:11px">شكراً لتسوقكم من مجمع البسام 🌹</div>
+                <div style="text-align:center;margin-top:11px;border-top:1px dashed #cbd5e1;padding-top:10px">
                     ${o.trackCode ? `<div style="font-size:12px;font-weight:700;color:#111">رقم تتبع الطلب: <span dir="ltr" style="font-weight:900;letter-spacing:2px">${esc(o.trackCode)}</span></div>` : ''}
-                    <div style="margin-top:6px;display:flex;justify-content:center"><svg class="x-bc" data-code="${no}"></svg></div>
+                    <div style="margin-top:5px;display:flex;justify-content:center"><svg class="x-bc" data-code="${no}"></svg></div>
+                    ${xSocialHtml()}
                 </div>
             </div>`;
         }
@@ -2488,8 +2494,6 @@
             g('set-fd-pct').value = settings.firstDiscPct || '';
             g('set-pwa-on').checked = !(settings.pwaPrompt === false || settings.pwaPrompt === 'false');
             g('set-hm-on').checked = !(settings.heroMotion === false || settings.heroMotion === 'false');
-            g('set-apk-on').checked = !(settings.apkOn === false || settings.apkOn === 'false');
-            g('set-apk-url').value = settings.apkUrl || '';
         }
         async function saveDiscounts() {
             const n = id => Math.max(0, Number(document.getElementById(id).value) || 0);
@@ -2506,7 +2510,7 @@
             showToast('تم حفظ الخصومات');
         }
         async function savePwa() {
-            await db.ref('settings').update({ pwaPrompt: document.getElementById('set-pwa-on').checked, heroMotion: document.getElementById('set-hm-on').checked, apkOn: document.getElementById('set-apk-on').checked, apkUrl: document.getElementById('set-apk-url').value.trim() || null });
+            await db.ref('settings').update({ pwaPrompt: document.getElementById('set-pwa-on').checked, heroMotion: document.getElementById('set-hm-on').checked });
             showToast('تم الحفظ');
         }
 
@@ -3193,7 +3197,7 @@ function xRenderStats() {
         h += `<div class="${XCARD}"><h4 class="font-bold text-xs">🔔 زبائن ينتظرون توفر منتجات</h4>${nf.map(r => {
             const name = r.p ? r.p.name : ('منتج #' + r.pid), ok = r.p && isAvailable_(r.p);
             const msg = encodeURIComponent(`مرحباً 👋 المنتج (${name}) أصبح متوفراً الآن في مجمع البسام. اطلبه قبل نفاده!`);
-            return `<div class="bg-slate-50 rounded-xl p-2.5 space-y-1.5"><div class="flex justify-between text-[11px] font-black"><span>${esc(name)}</span><span class="${ok ? 'text-emerald-600' : 'text-rose-500'}">${ok ? 'متوفر الآن ✅' : 'غير متوفر'}</span></div>${r.phones.map(ph => `<div class="flex items-center justify-between text-[11px]"><span dir="ltr" class="font-bold">${esc(ph)}</span><span class="flex gap-1.5"><a href="https://wa.me/${esc(phoneForWhatsapp(ph))}?text=${msg}" target="_blank" rel="noopener" class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-black">أبلغه</a><button onclick="xNotifyDone('${r.pid}','${esc(ph)}')" class="px-2 py-1 rounded-lg bg-slate-200 text-slate-600 font-bold cursor-pointer">تم</button></span></div>`).join('')}</div>`;
+            return `<div class="bg-slate-50 rounded-xl p-2.5 space-y-1.5"><div class="flex justify-between text-[11px] font-black"><span>${esc(name)}</span><span class="${ok ? 'text-emerald-600' : 'text-rose-500'}">${ok ? 'متوفر الآن ✅' : 'غير متوفر'}</span></div>${r.phones.map(ph => xNotifyRow(r.pid, ph, msg)).join('')}</div>`;
         }).join('')}</div>`;
     }
     // منتجات راكدة
@@ -3219,7 +3223,6 @@ function xRenderSettings() {
     if (!xe('x-set-static')) {
         box.innerHTML = `<div id="x-set-static" class="space-y-4">
         <div class="${XCARD}"><h4 class="font-bold text-sm">🛵 مندوبو التوصيل</h4><div class="flex gap-1.5"><input id="xc-name" placeholder="اسم المندوب" class="${XIN}"><input id="xc-fee" type="number" min="0" placeholder="أجرة الطلب" class="${XIN}"><button onclick="xAddCourier()" class="${XBTN}">+</button></div><div id="xc-list" class="space-y-1"></div></div>
-        <div class="${XCARD}"><h4 class="font-bold text-sm">📥 استيراد منتجات من Excel</h4><p class="text-[11px] text-slate-500">ملف .xlsx أو .csv، الصف الأول عناوين الأعمدة: <b>الاسم، السعر، القسم، المخزون، الوصف، السعر القديم، التكلفة</b> (الاسم والسعر إلزاميان). تُضاف المنتجات بدون صور ثم تضيف صورها لاحقاً.</p><input id="xi-file" type="file" accept=".xlsx,.xls,.csv" class="text-xs"><button onclick="xImport()" class="${XBTN}">استيراد</button><p id="xi-status" class="text-[11px] font-bold text-slate-600"></p></div>
         <div class="${XCARD}"><h4 class="font-bold text-sm">🗑️ سلة المحذوفات (30 يوماً)</h4><div id="xt-list" class="space-y-1"></div></div></div>`;
     }
     xe('xc-list').innerHTML = Object.values(xCouriers).map(c => `<div class="flex justify-between text-[11px] bg-slate-50 rounded-lg px-3 py-1.5"><span class="font-bold">${esc(c.name)} — ${formatPrice(c.fee)}</span><button onclick="xDelCourier('${c.id}')" class="text-rose-600">حذف</button></div>`).join('') || '<p class="text-[11px] text-slate-400">لا يوجد مندوبون</p>';
@@ -3312,6 +3315,269 @@ const _xOpenInvoice = openInvoice; openInvoice = function (id) { _xOpenInvoice(i
 const _xPrintLabels = xPrintLabels; xPrintLabels = function () { _xPrintLabels(); xDrawBarcodes(); };
 if (document.readyState !== 'loading') xStart(); else document.addEventListener('DOMContentLoaded', xStart);
 
+
+// ---------- صورة المنتج في الملصق + سطر التواصل ----------
+let xSocial = { handle: 'albsam_store', tg: true, fb: true, tt: true, ig: true };
+function xItemImg(i) {
+    const p = (typeof products !== 'undefined' ? products : []).find(x => String(x.id) === String(i.id));
+    const src = (p && ((Array.isArray(p.thumbs) && p.thumbs[0]) || (Array.isArray(p.images) && p.images[0]) || p.image)) || i.image || '';
+    if (!src) return '';
+    return `<img src="${esc(src)}" crossorigin="anonymous" style="width:31px;height:31px;object-fit:cover;border-radius:8px;flex-shrink:0;border:1px solid #e5e7eb">`;
+}
+function xSocialHtml() {
+    const ic = [['ig', 'fa-instagram'], ['fb', 'fa-facebook'], ['tt', 'fa-tiktok'], ['tg', 'fa-telegram']].filter(x => xSocial[x[0]] !== false);
+    if (!ic.length && !xSocial.handle) return '';
+    return `<div style="margin-top:10px;border-top:1px dashed #cbd5e1;padding-top:10px;display:flex;justify-content:center;direction:ltr"><div style="display:inline-flex;align-items:center;gap:10px;background:#e3f1ea;border-radius:999px;padding:6px 14px">${ic.map(x => `<i class="fa-brands ${x[1]}" style="font-size:15px;color:#0a3622"></i>`).join('')}<span dir="ltr" style="font-weight:900;font-size:12px;color:#0a3622;letter-spacing:.3px">${esc(xSocial.handle || '')}</span></div></div>`;
+}
+// ---------- أبلغني: واتساب / انستغرام / تيليجرام ----------
+function xNotifyRow(pid, key, msg) {
+    const v = (xNotify[pid] || {})[key] || {};
+    let label = key, link = '', btn = 'أبلغه';
+    if (/^ig_/.test(key)) { label = '📸 @' + (v.contact || key.slice(3)); link = 'https://instagram.com/' + encodeURIComponent(v.contact || key.slice(3)); }
+    else if (/^tg_/.test(key)) { label = '✈️ @' + (v.contact || key.slice(3)); link = 'https://t.me/' + encodeURIComponent(v.contact || key.slice(3)); }
+    else { link = 'https://wa.me/' + phoneForWhatsapp(key) + '?text=' + msg; label = '💬 ' + key; }
+    return `<div class="flex items-center justify-between text-[11px]"><span dir="ltr" class="font-bold">${esc(label)}</span><span class="flex gap-1.5"><a href="${esc(link)}" target="_blank" rel="noopener" class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-black">${btn}</a><button onclick="xNotifyDone('${pid}','${esc(key)}')" class="px-2 py-1 rounded-lg bg-slate-200 text-slate-600 font-bold cursor-pointer">تم</button></span></div>`;
+}
+// ---------- التحكم بأقسام الإعدادات (ترتيب / حذف / استرجاع) ----------
+const X_LAY_KEY = 'albsam_adm_layout';
+let xLay = (() => { try { return JSON.parse(localStorage.getItem(X_LAY_KEY) || 'null') || { order: [], hidden: [] }; } catch (e) { return { order: [], hidden: [] }; } })();
+function xLaySave() { try { localStorage.setItem(X_LAY_KEY, JSON.stringify(xLay)); } catch (e) { } try { db.ref('adminLayout').set(xLay); } catch (e) { } }
+function xCardKey(c) { const h = c.querySelector('h4'); return ((h ? h.textContent : c.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 40); }
+function xLayApply() {
+    const tab = document.getElementById('tab-settings'); if (!tab) return;
+    let wrap = document.getElementById('x-cards');
+    if (!wrap) { wrap = document.createElement('div'); wrap.id = 'x-cards'; wrap.className = 'space-y-4'; tab.appendChild(wrap); }
+    const all = [...tab.querySelectorAll(':scope > div.rounded-2xl, :scope > #extras-settings > div > div, :scope #x-set-static > div'), ...wrap.querySelectorAll(':scope > div[data-xk]')];
+    const uniq = [...new Set(all)];
+    uniq.forEach(c => { if (c.parentNode !== wrap) wrap.appendChild(c); if (!c.dataset.xk) c.dataset.xk = xCardKey(c); });
+    const cards = [...wrap.querySelectorAll(':scope > div[data-xk]')];
+    const idx = k => { const i = xLay.order.indexOf(k); return i < 0 ? 1e6 : i; };
+    const sorted = cards.map((c, n) => ({ c, n })).sort((a, b) => idx(a.c.dataset.xk) - idx(b.c.dataset.xk) || a.n - b.n).map(x => x.c);
+    sorted.forEach(c => wrap.appendChild(c));
+    xLay.order = sorted.map(c => c.dataset.xk);
+    sorted.forEach(c => {
+        c.style.position = 'relative';
+        const hide = xLay.hidden.includes(c.dataset.xk);
+        c.style.display = hide ? 'none' : '';
+        let bar = c.querySelector(':scope > .x-lay-bar');
+        if (!bar) {
+            bar = document.createElement('div'); bar.className = 'x-lay-bar';
+            bar.style.cssText = 'position:absolute;top:6px;left:6px;display:flex;gap:4px;z-index:5';
+            const k = c.dataset.xk, mk = (t, f, col) => `<button type="button" onclick="${f}" style="width:24px;height:24px;border-radius:8px;background:#f1f5f9;color:${col || '#475569'};font-size:11px;font-weight:900;cursor:pointer">${t}</button>`;
+            bar.innerHTML = '';
+            bar.dataset.k = k;
+            bar.innerHTML = mk('▲', 'xLayMove(this,-1)') + mk('▼', 'xLayMove(this,1)') + mk('✕', 'xLayHide(this)', '#e11d48');
+            c.insertBefore(bar, c.firstChild);
+        }
+    });
+    let hb = document.getElementById('x-lay-hidden');
+    if (!hb) { hb = document.createElement('div'); hb.id = 'x-lay-hidden'; hb.className = 'bg-white rounded-2xl border border-slate-200/85 shadow-sm p-4 space-y-2'; tab.appendChild(hb); }
+    tab.appendChild(hb);
+    const names = {}; sorted.forEach(c => { const h = c.querySelector('h4'); names[c.dataset.xk] = h ? h.textContent.replace(/\s+/g, ' ').trim() : c.dataset.xk; });
+    hb.innerHTML = `<h4 class="font-bold text-sm">🗑️ إعدادات محذوفة (للاسترجاع)</h4>` + (xLay.hidden.filter(k => names[k]).map(k => `<div class="flex items-center justify-between text-[11px] bg-slate-50 rounded-lg px-3 py-1.5"><span class="font-bold truncate flex-1">${esc(names[k])}</span><button onclick="xLayRestore(decodeURIComponent('${encodeURIComponent(k)}'))" class="text-store-dark font-black">استرجاع</button></div>`).join('') || '<p class="text-[11px] text-slate-400">لا توجد إعدادات محذوفة</p>');
+}
+function xLayMove(btn, dir) {
+    const c = btn.closest('[data-xk]'), wrap = c.parentNode;
+    const vis = [...wrap.querySelectorAll(':scope > div[data-xk]')].filter(x => x.style.display !== 'none');
+    const i = vis.indexOf(c), o = vis[i + dir]; if (!o) return;
+    if (dir < 0) wrap.insertBefore(c, o); else wrap.insertBefore(o, c);
+    xLay.order = [...wrap.querySelectorAll(':scope > div[data-xk]')].map(x => x.dataset.xk); xLaySave();
+}
+function xLayHide(btn) { const c = btn.closest('[data-xk]'); if (!confirm('نقل هذا القسم إلى المحذوفات؟')) return; xLay.hidden.push(c.dataset.xk); xLaySave(); xLayApply(); }
+function xLayRestore(k) { xLay.hidden = xLay.hidden.filter(x => x !== k); xLaySave(); xLayApply(); }
+const _xRenderSettingsL = xRenderSettings; xRenderSettings = function () { _xRenderSettingsL(); xLayApply(); };
+db.ref('adminLayout').once('value').then(sn => { const v = sn.val(); if (v && (v.order || v.hidden)) { xLay = { order: v.order || [], hidden: v.hidden || [] }; try { localStorage.setItem(X_LAY_KEY, JSON.stringify(xLay)); } catch (e) { } xLayApply(); } }).catch(() => { });
+document.addEventListener('DOMContentLoaded', () => setTimeout(xLayApply, 400));
+setTimeout(xLayApply, 800);
+
+// ---------- تنويه كود التتبع للزبون ----------
+(function () {
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-2xl border border-slate-200/85 shadow-sm p-4 space-y-3';
+    card.innerHTML = `<h4 class="font-bold text-slate-800 text-sm">📦 تنويه كود التتبع (يظهر للزبون فوق الكود)</h4>
+        <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer"><input id="tn-on" type="checkbox" class="w-4 h-4" checked> إظهار التنويه</label>
+        <textarea id="tn-text" rows="2" maxlength="200" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold" placeholder="مثال: احتفظ بهذا الكود لتتبع طلبك"></textarea>
+        <button type="button" onclick="xSaveTrackNotice()" class="w-full bg-store-dark text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">حفظ</button>`;
+    const add = () => { const t = document.getElementById('tab-settings'); if (t && !document.getElementById('tn-text')) { t.appendChild(card); xLayApply(); } };
+    document.addEventListener('DOMContentLoaded', () => setTimeout(add, 300)); setTimeout(add, 700);
+})();
+async function xSaveTrackNotice() {
+    await db.ref('settings').update({ trackNotice: document.getElementById('tn-text').value.trim(), trackNoticeOn: document.getElementById('tn-on').checked });
+    showToast('تم حفظ التنويه');
+}
+db.ref('settings').on('value', sn => {
+    const v = sn.val() || {}, t = document.getElementById('tn-text'), o = document.getElementById('tn-on');
+    if (!t || document.activeElement === t) return;
+    t.value = (v.trackNotice === undefined || v.trackNotice === null) ? 'هذا الكود يُستخدم لتتبع طلبك لاحقاً' : v.trackNotice;
+    o.checked = !(v.trackNoticeOn === false || v.trackNoticeOn === 'false');
+});
+// ---------- تكبير خط الإحصائيات 15% ----------
+(function () {
+    const m = { 'text-\\[9px\\]': 10.35, 'text-\\[10px\\]': 11.5, 'text-\\[11px\\]': 12.65, 'text-\\[12px\\]': 13.8, 'text-xs': 13.8, 'text-sm': 16.1, 'text-base': 18.4, 'text-lg': 20.7, 'text-xl': 23 };
+    const st = document.createElement('style');
+    st.textContent = Object.keys(m).map(k => '#tab-stats .' + k + '{font-size:' + m[k] + 'px!important}').join('');
+    document.head.appendChild(st);
+})();
+// ---------- التحكم بميزات المتجر والتطبيق ----------
+const X_FEATS = [
+    ['welcome', '🎁 نافذة ترحيب بخصم أول طلب'], ['recent', '🕘 شاهدتها مؤخراً'], ['addr', '📍 العناوين المحفوظة'],
+    ['shareStore', '📤 زر مشاركة المتجر'], ['notify', '🔔 أبلغني عند التوفر'], ['ptr', '⬇️ السحب للتحديث (التطبيق)'],
+    ['pushOrders', '📦 إشعارات حالة الطلب (التطبيق)'], ['pushWaits', '🛎️ إشعار توفر المنتج (التطبيق)'], ['pushOffers', '📣 إشعارات العروض (التطبيق)'],
+    ['badge', '🔢 عدّاد الطلبات الجارية (التطبيق)'], ['shareImg', '🖼️ مشاركة المنتج مع صورته (التطبيق)'], ['scan', '📷 مسح باركود المنتج (التطبيق)'],
+    ['update', '🆕 إشعار تحديث التطبيق']
+];
+(function () {
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-2xl border border-slate-200/85 shadow-sm p-4 space-y-3';
+    card.innerHTML = `<h4 class="font-bold text-slate-800 text-sm">🎛️ التحكم بميزات المتجر والتطبيق</h4>
+        <div class="grid grid-cols-1 gap-2 text-xs font-semibold text-slate-700">${X_FEATS.map(f => `<label class="flex items-center gap-2 cursor-pointer"><input id="ft-${f[0]}" type="checkbox" class="w-4 h-4" checked> ${f[1]}</label>`).join('')}</div>
+        <div><label class="block text-xs font-semibold text-slate-600 mb-1">مدة شاشة الفتح (بالثواني)</label><input id="ft-splashSecs" type="number" min="0.3" max="8" step="0.1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"></div>
+        <button type="button" onclick="xSaveFeats()" class="w-full bg-store-dark text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">حفظ</button>
+        <hr class="border-slate-100">
+        <h4 class="font-bold text-slate-800 text-sm">🆕 تحديث التطبيق</h4>
+        <input id="app-ver" type="number" min="1" placeholder="رقم آخر نسخة (رقم التشغيل Run في GitHub)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <input id="app-url" type="url" dir="ltr" placeholder="رابط تحميل الـ APK" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <input id="app-note" type="text" maxlength="100" placeholder="ملاحظة قصيرة (اختياري)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <button type="button" onclick="xSaveAppUpd()" class="w-full bg-store-dark text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">حفظ بيانات التحديث</button>
+        <hr class="border-slate-100">
+        <h4 class="font-bold text-slate-800 text-sm">📣 إرسال عرض لمن ثبّت التطبيق</h4>
+        <input id="push-title" type="text" maxlength="60" placeholder="عنوان الإشعار" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <textarea id="push-body" rows="2" maxlength="160" placeholder="نص الإشعار" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"></textarea>
+        <p class="text-[11px] text-slate-400">يصل للزبائن خلال 15 دقيقة تقريباً.</p>
+        <button type="button" onclick="xSendPush()" class="w-full bg-amber-400 text-store-dark text-xs font-black py-2.5 rounded-xl cursor-pointer">إرسال الإشعار</button>`;
+    const add = () => { const t = document.getElementById('tab-settings'); if (t && !document.getElementById('app-ver')) { t.appendChild(card); xFillFeats(); xLayApply(); } };
+    document.addEventListener('DOMContentLoaded', () => setTimeout(add, 300)); setTimeout(add, 700);
+})();
+let xFeatSettings = {};
+function xFillFeats() {
+    const g = id => document.getElementById(id); if (!g('app-ver')) return;
+    const f = xFeatSettings.features || {};
+    X_FEATS.forEach(x => { g('ft-' + x[0]).checked = f[x[0]] !== false; });
+    if (document.activeElement !== g('ft-splashSecs')) g('ft-splashSecs').value = f.splashSecs || '';
+    if (document.activeElement !== g('app-ver')) g('app-ver').value = xFeatSettings.appVersion || '';
+    if (document.activeElement !== g('app-url')) g('app-url').value = xFeatSettings.appUrl || '';
+    if (document.activeElement !== g('app-note')) g('app-note').value = xFeatSettings.appNote || '';
+}
+async function xSaveFeats() {
+    const f = {}; X_FEATS.forEach(x => { f[x[0]] = document.getElementById('ft-' + x[0]).checked; });
+    const sp = Number(document.getElementById('ft-splashSecs').value); if (sp >= 0.3) f.splashSecs = sp;
+    await db.ref('settings').update({ features: f }); showToast('تم حفظ الميزات');
+}
+async function xSaveAppUpd() {
+    await db.ref('settings').update({ appVersion: Number(document.getElementById('app-ver').value) || null, appUrl: document.getElementById('app-url').value.trim() || null, appNote: document.getElementById('app-note').value.trim() || null });
+    showToast('تم الحفظ');
+}
+async function xSendPush() {
+    const title = document.getElementById('push-title').value.trim(), body = document.getElementById('push-body').value.trim();
+    if (!title || !body) { showToast('اكتب العنوان والنص'); return; }
+    await db.ref('settings/push').set({ id: String(Date.now()), title, body });
+    document.getElementById('push-title').value = ''; document.getElementById('push-body').value = '';
+    showToast('تم إرسال الإشعار');
+}
+db.ref('settings').on('value', sn => { xFeatSettings = sn.val() || {}; xFillFeats(); });
+// ---------- الاتصال المباشر وأوقات الدوام ----------
+(function () {
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-2xl border border-slate-200/85 shadow-sm p-4 space-y-3';
+    card.innerHTML = `<h4 class="font-bold text-slate-800 text-sm">📞 الاتصال وأوقات الدوام (تظهر أسفل المتجر)</h4>
+        <input id="call-phone" type="tel" dir="ltr" placeholder="رقم الاتصال مثال: 07701234567" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <input id="call-hours" type="text" maxlength="80" placeholder="أوقات الدوام مثال: يومياً من 9 صباحاً حتى 10 مساءً" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <p class="text-[11px] text-slate-400">اترك رقم الاتصال فارغاً لإخفاء الزر.</p>
+        <button type="button" onclick="xSaveCall()" class="w-full bg-store-dark text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">حفظ</button>`;
+    const add = () => { const t = document.getElementById('tab-settings'); if (t && !document.getElementById('call-phone')) { t.appendChild(card); xLayApply(); } };
+    document.addEventListener('DOMContentLoaded', () => setTimeout(add, 300)); setTimeout(add, 700);
+})();
+async function xSaveCall() {
+    await db.ref('settings').update({ callPhone: document.getElementById('call-phone').value.trim() || null, workHours: document.getElementById('call-hours').value.trim() || null });
+    showToast('تم الحفظ');
+}
+db.ref('settings').on('value', sn => {
+    const v = sn.val() || {}, p = document.getElementById('call-phone'), h = document.getElementById('call-hours');
+    if (!p || !h) return;
+    if (document.activeElement !== p) p.value = v.callPhone || '';
+    if (document.activeElement !== h) h.value = v.workHours || '';
+});
+// ---------- إعدادات روابط التواصل (تظهر في الملصق) ----------
+(function () {
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-2xl border border-slate-200/85 shadow-sm p-4 space-y-3';
+    card.innerHTML = `<h4 class="font-bold text-slate-800 text-sm">🌐 حسابات التواصل (تظهر أسفل الملصق)</h4>
+        <input id="soc-handle" placeholder="اليوزر المشترك مثال: albsam_store" dir="ltr" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <div class="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-700">
+            <label class="flex items-center gap-2"><input id="soc-tg" type="checkbox" class="w-4 h-4"> تيليجرام</label>
+            <label class="flex items-center gap-2"><input id="soc-fb" type="checkbox" class="w-4 h-4"> فيسبوك</label>
+            <label class="flex items-center gap-2"><input id="soc-tt" type="checkbox" class="w-4 h-4"> تيك توك</label>
+            <label class="flex items-center gap-2"><input id="soc-ig" type="checkbox" class="w-4 h-4"> انستغرام</label>
+        </div>
+        <button type="button" onclick="xSaveSocial()" class="w-full bg-store-dark text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">حفظ</button>`;
+    const add = () => { const t = document.getElementById('tab-settings'); if (t && !document.getElementById('soc-handle')) { t.appendChild(card); xFillSocial(); xLayApply(); } };
+    document.addEventListener('DOMContentLoaded', () => setTimeout(add, 300)); setTimeout(add, 700);
+})();
+function xFillSocial() {
+    const g = id => document.getElementById(id); if (!g('soc-handle')) return;
+    g('soc-handle').value = xSocial.handle || '';
+    ['tg', 'fb', 'tt', 'ig'].forEach(k => g('soc-' + k).checked = xSocial[k] !== false);
+}
+async function xSaveSocial() {
+    const g = id => document.getElementById(id);
+    xSocial = { handle: g('soc-handle').value.trim(), tg: g('soc-tg').checked, fb: g('soc-fb').checked, tt: g('soc-tt').checked, ig: g('soc-ig').checked };
+    await db.ref('settings').update({ social: xSocial }); showToast('تم حفظ حسابات التواصل');
+}
+db.ref('settings/social').on('value', sn => { const v = sn.val(); if (v) { xSocial = Object.assign({ handle: 'albsam_store', tg: true, fb: true, tt: true, ig: true }, v); if (xSocial.handle === 'البسام/*') xSocial.handle = 'albsam_store'; xFillSocial(); } });
+
+// ---------- ترتيب أقسام الإحصائيات (هيكلة نظيفة) ----------
+const X_ST_KEY = 'albsam_adm_stats2';
+let xStLay = (() => { try { return JSON.parse(localStorage.getItem(X_ST_KEY) || 'null') || { order: [] }; } catch (e) { return { order: [] }; } })();
+function xStSave() { try { localStorage.setItem(X_ST_KEY, JSON.stringify(xStLay)); } catch (e) { } try { db.ref('adminLayoutStats2').set(xStLay); } catch (e) { } }
+function xStList() {
+    let list = document.getElementById('x-st-list');
+    if (list) return list;
+    const tab = document.getElementById('tab-stats'); if (!tab) return null;
+    list = document.createElement('div'); list.id = 'x-st-list'; list.className = 'space-y-4';
+    const sc = document.getElementById('stats-cards');
+    const first = document.createElement('div'); first.dataset.xsk = 'numbers';
+    sc.parentNode.insertBefore(first, sc); first.appendChild(sc);
+    const statics = [...tab.querySelectorAll(':scope > div')].filter(d => d.id !== 'extras-stats' && d.id !== 'x-st-list');
+    tab.insertBefore(list, document.getElementById('extras-stats'));
+    statics.forEach(d => { if (!d.dataset.xsk) { const h = d.querySelector(':scope > h4'); d.dataset.xsk = h ? h.textContent.replace(/\s+/g, ' ').trim().slice(0, 40) : 'sec' + list.children.length; } list.appendChild(d); });
+    return list;
+}
+function xStApply() {
+    const list = xStList(); if (!list) return;
+    const ex = document.getElementById('extras-stats');
+    if (ex) [...ex.children].forEach(c => { const h = c.querySelector(':scope > h4'); c.dataset.xsk = h ? h.textContent.replace(/\s+/g, ' ').trim().slice(0, 40) : 'x' + Math.random(); c.dataset.dyn = '1'; list.appendChild(c); });
+    const cards = [...list.children];
+    const idx = k => { const i = xStLay.order.indexOf(k); return i < 0 ? 1e6 : i; };
+    cards.map((c, n) => ({ c, n })).sort((a, b) => idx(a.c.dataset.xsk) - idx(b.c.dataset.xsk) || a.n - b.n).forEach(x => list.appendChild(x.c));
+    [...list.children].forEach(c => {
+        c.style.position = 'relative';
+        if (!c.querySelector(':scope > .x-st-bar')) {
+            const bar = document.createElement('div'); bar.className = 'x-st-bar';
+            bar.style.cssText = 'position:absolute;top:6px;left:6px;display:flex;gap:4px;z-index:5';
+            const mk = (t, d) => `<button type="button" onclick="xStMove(this,${d})" style="width:24px;height:24px;border-radius:8px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:900;cursor:pointer">${t}</button>`;
+            bar.innerHTML = mk('▲', -1) + mk('▼', 1);
+            c.insertBefore(bar, c.firstChild);
+        }
+    });
+}
+function xStMove(btn, dir) {
+    const c = btn.closest('#x-st-list > div'), list = c.parentNode;
+    const keys = [...list.children].map(x => x.dataset.xsk), i = keys.indexOf(c.dataset.xsk), j = i + dir;
+    if (j < 0 || j >= keys.length) return;
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+    xStLay.order = keys; xStSave(); xStApply();
+}
+const _xRenderStatsL = xRenderStats;
+xRenderStats = function () {
+    const a = document.activeElement;
+    if (a && a.tagName === 'INPUT' && a.closest('#x-st-list [data-dyn]')) return;
+    const list = document.getElementById('x-st-list');
+    if (list) list.querySelectorAll(':scope > [data-dyn]').forEach(n => n.remove());
+    _xRenderStatsL(); xStApply();
+};
+const _xShowTabL = showTab; showTab = function (n) { _xShowTabL(n); if (n === 'stats') xStApply(); };
+db.ref('adminLayoutStats2').once('value').then(sn => { const v = sn.val(); if (v && v.order) { xStLay = { order: v.order }; try { localStorage.setItem(X_ST_KEY, JSON.stringify(xStLay)); } catch (e) { } xStApply(); } }).catch(() => { });
+setTimeout(xStApply, 900);
 </script>
 </body>
 </html>
