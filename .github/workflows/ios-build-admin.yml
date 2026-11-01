@@ -765,8 +765,8 @@ jobs:
                   NSLayoutConstraint.activate([
                       settingsButton.widthAnchor.constraint(equalToConstant: 44),
                       settingsButton.heightAnchor.constraint(equalToConstant: 44),
-                      settingsButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
-                      settingsButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -14)
+                      settingsButton.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 14),
+                      settingsButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -39)
                   ])
               }
 
@@ -831,8 +831,10 @@ jobs:
                   logo.textColor = storeGreen
                   logo.textAlignment = .center
                   logo.backgroundColor = storeAmber
-                  logo.layer.cornerRadius = 20
+                  logo.layer.cornerRadius = 26
                   logo.layer.masksToBounds = true
+                  logo.layer.borderWidth = 3
+                  logo.layer.borderColor = storeAmber.cgColor
                   if let limg = appLogoImage() {
                       logo.text = ""
                       let iv = UIImageView(image: limg)
@@ -851,8 +853,8 @@ jobs:
                   NSLayoutConstraint.activate([
                       logo.centerXAnchor.constraint(equalTo: logoBox.centerXAnchor),
                       logo.centerYAnchor.constraint(equalTo: logoBox.centerYAnchor),
-                      logo.widthAnchor.constraint(equalToConstant: 80),
-                      logo.heightAnchor.constraint(equalToConstant: 80)
+                      logo.widthAnchor.constraint(equalToConstant: 116),
+                      logo.heightAnchor.constraint(equalToConstant: 116)
                   ])
 
                   let title = UILabel()
@@ -1130,7 +1132,7 @@ jobs:
           chmod +x build/Payload/AlbsamApp.app/AlbsamApp
 
           ICON=""
-          for f in apple-touch-icon.png icon-512.png icon-192.png "لوكو.png"; do
+          for f in admin-icon.png apple-touch-icon.png icon-512.png icon-192.png "لوكو.png"; do
             if [ -f "$f" ]; then ICON="$f"; break; fi
           done
           if [ -n "$ICON" ]; then
