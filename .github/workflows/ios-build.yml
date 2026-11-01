@@ -549,9 +549,13 @@ jobs:
 
           chmod +x build/Payload/AlbsamShop.app/AlbsamShop
 
-          if [ -f "لوكو.png" ]; then
-            sips -s format png -z 120 120 "لوكو.png" --out build/Payload/AlbsamShop.app/AppIcon60x60@2x.png || true
-            sips -s format png -z 180 180 "لوكو.png" --out build/Payload/AlbsamShop.app/AppIcon60x60@3x.png || true
+          ICON=""
+          for f in icon-512.png apple-touch-icon.png icon-192.png "لوكو.png"; do
+            if [ -f "$f" ]; then ICON="$f"; break; fi
+          done
+          if [ -n "$ICON" ]; then
+            sips -s format png -z 120 120 "$ICON" --out build/Payload/AlbsamShop.app/AppIcon60x60@2x.png || true
+            sips -s format png -z 180 180 "$ICON" --out build/Payload/AlbsamShop.app/AppIcon60x60@3x.png || true
           fi
 
           cat << 'EOF' > build/Payload/AlbsamShop.app/Info.plist
