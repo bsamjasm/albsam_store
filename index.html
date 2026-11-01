@@ -381,6 +381,17 @@
         </div>
         <p dir="ltr" class="font-semibold mb-2">@albsam_store</p>
         © مجمع البسام
+        <div id="apk-card" class="hidden mx-4 mt-4 hero-pattern rounded-2xl border-2 border-amber-400 text-white p-4 relative overflow-hidden max-w-sm sm:mx-auto text-right">
+            <div class="relative z-10 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-amber-400 text-store-dark flex items-center justify-center text-2xl flex-shrink-0"><i class="fa-brands fa-android"></i></div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-black text-sm">حمّل تطبيق مجمع البسام</div>
+                    <div class="text-[11px] text-emerald-100/80">تسوّق أسرع من جوالك الأندرويد</div>
+                </div>
+                <a id="apk-link" href="#" rel="noopener" class="hm-glow bg-amber-400 text-store-dark font-black text-xs px-3.5 py-2 rounded-xl flex-shrink-0">تحميل</a>
+            </div>
+            <p class="relative z-10 text-[10px] text-emerald-100/60 mt-2">إذا ظهر تنبيه أثناء التثبيت، اختر «السماح بالتثبيت من هذا المصدر».</p>
+        </div>
     </footer>
 
     <script>
@@ -710,6 +721,7 @@
                 }
                 firstDisc = { on: tr(s.firstDiscOn), pct: Number(s.firstDiscPct) || 0 };
                 pwaPromptOn = !(s.pwaPrompt === false || s.pwaPrompt === 'false');
+                try { renderApkCard(s); } catch (e) { }
                 const lg = { letter: String(s.logoLetter || '').trim(), img: String(s.logoImage || '').trim() };
                 applyLogo(lg);
                 try { localStorage.setItem('albsam_logo', JSON.stringify(lg)); } catch (e) { }
@@ -2318,6 +2330,17 @@ function openNotify(id) {
 }
 function closeNotify() { const m = document.getElementById('notify-modal'); if (m) m.remove(); }
 async function submitNotify(id) { if (await nmSave(id, 'nmm')) { closeNotify(); renderProducts(); if (detailId !== null) renderProductModal(); } }
+
+// بطاقة تحميل تطبيق أندرويد (تظهر لزوار أندرويد خارج التطبيق فقط)
+function renderApkCard(s) {
+    const c = document.getElementById('apk-card');
+    if (!c) return;
+    const ua = navigator.userAgent || '';
+    const on = !(s.apkOn === false || s.apkOn === 'false');
+    const url = String(s.apkUrl || '').trim() || 'https://github.com/bsamjasm/albsam_store/releases/download/store-apk/AlbsamStore.apk';
+    document.getElementById('apk-link').href = url;
+    c.classList.toggle('hidden', !(on && /android/i.test(ua) && !/; wv\)/.test(ua)));
+}
 </script>
 </body>
 </html>
