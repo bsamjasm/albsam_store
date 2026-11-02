@@ -1,0 +1,624 @@
+name: Build Android Admin APK
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Read store config
+        run: |
+          node -e '
+          global.window = {};
+          eval(require("fs").readFileSync("config.js", "utf8"));
+          const S = window.STORE;
+          const u = new URL(S.pagesUrl);
+          if (!/^#[0-9a-fA-F]{6}$/.test(S.color)) throw new Error("color must be #RRGGBB");
+          if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(S.packageName)) throw new Error("bad packageName");
+          const pages = S.pagesUrl.replace(/\/?$/, "/");
+          console.log("PAGES=" + pages);
+          console.log("HOSTN=" + u.host);
+          console.log("APP_NAME=إدارة " + S.name);
+          console.log("COLOR=" + S.color.replace("#", "").toUpperCase());
+          console.log("PKG=" + S.packageName);
+          console.log("PKGPATH=" + S.packageName.replace(/\./g, "/"));
+          ' >> $GITHUB_ENV
+
+      - name: Create Android admin project
+        run: |
+          sudo apt-get install -y imagemagick > /dev/null
+          P=android-admin
+          J=$P/app/src/main/java/$PKGPATH/admin
+          R=$P/app/src/main/res
+          A=$P/app/src/main/assets
+          mkdir -p $J $R/values $R/xml $A
+
+          cat > $P/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "AlbsamAdmin"
+          include ':app'
+          EOF
+
+          cat > $P/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          EOF
+
+          cat > $P/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2g
+          android.useAndroidX=true
+          EOF
+
+          cat > $P/app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace '__PKG__.admin'
+              compileSdk 34
+              defaultConfig {
+                  applicationId '__PKG__.admin'
+                  minSdk 24
+                  targetSdk 34
+                  versionCode Integer.parseInt(System.getenv('RUN_NUMBER') ?: '1')
+                  versionName '1.0'
+              }
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv('KS_PATH'))
+                      storePassword System.getenv('KS_PASS')
+                      keyAlias System.getenv('KS_ALIAS')
+                      keyPassword System.getenv('KS_PASS')
+                  }
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      signingConfig signingConfigs.release
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation 'androidx.core:core:1.13.1'
+          }
+          EOF
+
+          cat > $P/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-feature android:name="android.hardware.camera" android:required="false" />
+              <application
+                  android:label="@string/app_name"
+                  android:icon="@mipmap/ic_launcher"
+                  android:supportsRtl="true"
+                  android:allowBackup="false"
+                  android:usesCleartextTraffic="false"
+                  android:theme="@style/AppTheme">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTask"
+                      android:windowSoftInputMode="adjustResize"
+                      android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|fontScale|density">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="${applicationId}.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/file_paths" />
+                  </provider>
+              </application>
+          </manifest>
+          EOF
+
+          cat > $R/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">__NAME__</string>
+          </resources>
+          EOF
+
+          cat > $R/xml/file_paths.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths>
+              <cache-path name="share" path="share/" />
+          </paths>
+          EOF
+
+          cat > $R/values/styles.xml <<'EOF'
+          <resources>
+              <color name="store_green">#__COLOR__</color>
+              <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+                  <item name="android:windowBackground">@color/store_green</item>
+                  <item name="android:statusBarColor">@color/store_green</item>
+                  <item name="android:navigationBarColor">@color/store_green</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > $A/hook.js <<'EOF'
+          (function () {
+            if (window.__dlHook) return;
+            window.__dlHook = 1;
+            function grab(a) {
+              var h = a.href || '';
+              if (!a.hasAttribute('download') || !(h.indexOf('blob:') === 0 || h.indexOf('data:') === 0)) return false;
+              fetch(h).then(function (r) { return r.blob(); }).then(function (b) {
+                var f = new FileReader();
+                f.onload = function () {
+                  AdminApp.save(a.getAttribute('download') || 'file', b.type || 'application/octet-stream', String(f.result).split(',')[1] || '');
+                };
+                f.readAsDataURL(b);
+              });
+              return true;
+            }
+            var oc = HTMLAnchorElement.prototype.click;
+            HTMLAnchorElement.prototype.click = function () { if (!grab(this)) oc.call(this); };
+            document.addEventListener('click', function (e) {
+              var a = e.target && e.target.closest ? e.target.closest('a[download]') : null;
+              if (a && grab(a)) e.preventDefault();
+            }, true);
+          function b64(f) {
+            return new Promise(function (res) {
+              var r = new FileReader();
+              r.onload = function () { res(String(r.result).split(',')[1] || ''); };
+              r.readAsDataURL(f);
+            });
+          }
+          navigator.canShare = function (d) { return !!d && (!!d.files || !!d.text || !!d.url); };
+          navigator.share = function (d) {
+            d = d || {};
+            if (d.files && d.files.length) {
+              var f = d.files[0];
+              return b64(f).then(function (s) { AdminApp.shareFile(f.name || 'file', f.type || 'application/octet-stream', s, d.title || ''); });
+            }
+            AdminApp.shareText(String(d.title || ''), String(d.text || ''), String(d.url || ''));
+            return Promise.resolve();
+          };
+          window.print = function () { AdminApp.print(); };
+          window.open = function (u) { if (u) AdminApp.open(String(u)); return null; };
+          })();
+          EOF
+
+          cat > $J/MainActivity.java <<'EOF'
+          package __PKG__.admin;
+
+          import android.app.Activity;
+          import android.content.Context;
+          import android.print.PrintAttributes;
+          import android.print.PrintDocumentAdapter;
+          import android.print.PrintManager;
+          import android.webkit.RenderProcessGoneDetail;
+          import androidx.core.content.FileProvider;
+          import android.content.ActivityNotFoundException;
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.graphics.Typeface;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.provider.MediaStore;
+          import android.util.Base64;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.webkit.JavascriptInterface;
+          import android.webkit.PermissionRequest;
+          import android.webkit.ValueCallback;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebResourceError;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.widget.FrameLayout;
+          import android.widget.ImageView;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import java.io.ByteArrayOutputStream;
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
+          import java.io.OutputStream;
+
+          public class MainActivity extends Activity {
+              static final String HOME = "__PAGES__admin.html";
+              static final String HOST = "__HOST__";
+              WebView web;
+              View overlay;
+              boolean splashDone = false;
+              PermissionRequest pendingPerm = null;
+              ValueCallback<Uri[]> filePick = null;
+              String hook = "";
+              long startMs;
+
+              @Override
+              protected void onCreate(Bundle saved) {
+                  super.onCreate(saved);
+                  startMs = System.currentTimeMillis();
+                  try {
+                      InputStream in = getAssets().open("hook.js");
+                      ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                      byte[] buf = new byte[2048];
+                      int n;
+                      while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+                      in.close();
+                      hook = bo.toString("UTF-8");
+                  } catch (Exception e) { }
+                  web = new WebView(this);
+                  web.setBackgroundColor(0xFF__COLOR__);
+                  FrameLayout root = new FrameLayout(this);
+                  root.setBackgroundColor(0xFF__COLOR__);
+                  root.addView(web, new FrameLayout.LayoutParams(-1, -1));
+                  overlay = buildSplash();
+                  root.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
+                  setContentView(root);
+                  web.postDelayed(new Runnable() { public void run() { hideSplash(); } }, 8000);
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setAllowFileAccess(false);
+                  s.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  web.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                          if (!r.isForMainFrame()) return false;
+                          return handle(r.getUrl());
+                      }
+                      @Override
+                      public void onPageFinished(WebView v, String url) {
+                          if (url != null && url.startsWith("https")) {
+                              hideSplash();
+                              if (hook.length() > 0) v.evaluateJavascript(hook, null);
+                          }
+                      }
+                      @Override
+                      public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
+                          if (r.isForMainFrame()) { showOffline(); splashDone = false; hideSplash(); }
+                      }
+                      @Override
+                      public boolean onRenderProcessGone(WebView v, RenderProcessGoneDetail d) {
+                          runOnUiThread(new Runnable() { public void run() { recreate(); } });
+                          return true;
+                      }
+                  });
+                  web.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public void onPermissionRequest(final PermissionRequest request) {
+                          runOnUiThread(new Runnable() {
+                              public void run() {
+                                  if (checkSelfPermission("android.permission.CAMERA") == PackageManager.PERMISSION_GRANTED) {
+                                      request.grant(request.getResources());
+                                  } else {
+                                      pendingPerm = request;
+                                      requestPermissions(new String[]{"android.permission.CAMERA"}, 2);
+                                  }
+                              }
+                          });
+                      }
+                      @Override
+                      public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams p) {
+                          if (filePick != null) filePick.onReceiveValue(null);
+                          filePick = cb;
+                          try {
+                              startActivityForResult(p.createIntent(), 7);
+                          } catch (Exception e) {
+                              filePick = null;
+                              return false;
+                          }
+                          return true;
+                      }
+                  });
+                  web.addJavascriptInterface(new Object() {
+                      @JavascriptInterface
+                      public void save(final String name, final String mime, final String b64) {
+                          new Thread(new Runnable() {
+                              public void run() { saveFile(name, mime, b64); }
+                          }).start();
+                      }
+                      @JavascriptInterface
+                      public void shareFile(String name, String mime, String b64, String title) { doShareFile(name, mime, b64, title); }
+                      @JavascriptInterface
+                      public void shareText(String title, String text, String url) { doShareText(title, text, url); }
+                      @JavascriptInterface
+                      public void print() { doPrint(); }
+                      @JavascriptInterface
+                      public void open(String url) { openExternal(url); }
+                  }, "AdminApp");
+                  if (saved == null || web.restoreState(saved) == null) web.loadUrl(HOME);
+              }
+
+              void openExternal(final String url) {
+                  runOnUiThread(new Runnable() {
+                      public void run() {
+                          try {
+                              Uri u = Uri.parse(url);
+                              String sc = u.getScheme();
+                              if (sc == null) return;
+                              if (!(sc.equals("https") || sc.equals("http") || sc.equals("tel") || sc.equals("mailto") || sc.equals("whatsapp") || sc.equals("tg"))) return;
+                              startActivity(new Intent(Intent.ACTION_VIEW, u));
+                          } catch (Exception e) { }
+                      }
+                  });
+              }
+
+              void doPrint() {
+                  runOnUiThread(new Runnable() {
+                      public void run() {
+                          try {
+                              PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                              PrintDocumentAdapter a = web.createPrintDocumentAdapter("document");
+                              pm.print(getString(R.string.app_name), a, new PrintAttributes.Builder().build());
+                          } catch (Exception e) { toast("تعذرت الطباعة"); }
+                      }
+                  });
+              }
+
+              void doShareText(String title, String text, String url) {
+                  Intent i = new Intent(Intent.ACTION_SEND);
+                  i.setType("text/plain");
+                  String body = text == null ? "" : text;
+                  if (url != null && url.length() > 0) body = body.length() > 0 ? body + "\n" + url : url;
+                  i.putExtra(Intent.EXTRA_TEXT, body);
+                  final Intent c = Intent.createChooser(i, title);
+                  runOnUiThread(new Runnable() { public void run() { try { startActivity(c); } catch (Exception e) { toast("تعذرت المشاركة"); } } });
+              }
+
+              void doShareFile(String name, String mime, String b64, String title) {
+                  try {
+                      byte[] data = Base64.decode(b64, Base64.DEFAULT);
+                      String safe = name.replaceAll("[\\\\/:*?\"<>|]", "_");
+                      File dir = new File(getCacheDir(), "share");
+                      dir.mkdirs();
+                      File[] old = dir.listFiles();
+                      if (old != null) { for (File o : old) o.delete(); }
+                      File f = new File(dir, safe);
+                      FileOutputStream os = new FileOutputStream(f);
+                      os.write(data);
+                      os.close();
+                      Uri u = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
+                      Intent i = new Intent(Intent.ACTION_SEND);
+                      i.setType(mime);
+                      i.putExtra(Intent.EXTRA_STREAM, u);
+                      i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                      final Intent c = Intent.createChooser(i, title);
+                      c.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                      runOnUiThread(new Runnable() { public void run() { try { startActivity(c); } catch (Exception e) { toast("تعذرت المشاركة"); } } });
+                  } catch (Exception e) {
+                      toast("تعذرت المشاركة");
+                  }
+              }
+
+              void toast(final String t) {
+                  runOnUiThread(new Runnable() {
+                      public void run() { Toast.makeText(MainActivity.this, t, Toast.LENGTH_LONG).show(); }
+                  });
+              }
+
+              void saveFile(String name, String mime, String b64) {
+                  try {
+                      byte[] data = Base64.decode(b64, Base64.DEFAULT);
+                      String safe = name.replaceAll("[\\\\/:*?\"<>|]", "_");
+                      if (Build.VERSION.SDK_INT >= 29) {
+                          ContentValues cv = new ContentValues();
+                          cv.put(MediaStore.Downloads.DISPLAY_NAME, safe);
+                          cv.put(MediaStore.Downloads.MIME_TYPE, mime);
+                          cv.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                          Uri u = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                          OutputStream os = getContentResolver().openOutputStream(u);
+                          os.write(data);
+                          os.close();
+                      } else {
+                          File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                          dir.mkdirs();
+                          FileOutputStream os = new FileOutputStream(new File(dir, safe));
+                          os.write(data);
+                          os.close();
+                      }
+                      toast("تم حفظ الملف في التنزيلات: " + safe);
+                  } catch (Exception e) {
+                      toast("تعذر حفظ الملف");
+                  }
+              }
+
+              @Override
+              protected void onActivityResult(int req, int res, Intent data) {
+                  super.onActivityResult(req, res, data);
+                  if (req == 7 && filePick != null) {
+                      filePick.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res, data));
+                      filePick = null;
+                  }
+              }
+
+              @Override
+              public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+                  super.onRequestPermissionsResult(code, perms, res);
+                  if (code == 2 && pendingPerm != null) {
+                      if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) pendingPerm.grant(pendingPerm.getResources());
+                      else pendingPerm.deny();
+                      pendingPerm = null;
+                  }
+              }
+
+              View buildSplash() {
+                  float d = getResources().getDisplayMetrics().density;
+                  LinearLayout l = new LinearLayout(this);
+                  l.setOrientation(LinearLayout.VERTICAL);
+                  l.setGravity(Gravity.CENTER);
+                  l.setBackgroundColor(0xFF__COLOR__);
+                  l.setClickable(true);
+                  ImageView iv = new ImageView(this);
+                  iv.setImageResource(R.mipmap.ic_launcher);
+                  int px = (int) (96 * d);
+                  l.addView(iv, new LinearLayout.LayoutParams(px, px));
+                  TextView t = new TextView(this);
+                  t.setText("__NAME__");
+                  t.setTextColor(0xFFFCD34D);
+                  t.setTextSize(22);
+                  t.setTypeface(Typeface.DEFAULT_BOLD);
+                  t.setGravity(Gravity.CENTER);
+                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
+                  p.topMargin = (int) (16 * d);
+                  l.addView(t, p);
+                  return l;
+              }
+
+              void hideSplash() {
+                  if (splashDone || overlay == null) return;
+                  splashDone = true;
+                  long wait = Math.max(0, 900 - (System.currentTimeMillis() - startMs));
+                  overlay.postDelayed(new Runnable() {
+                      public void run() {
+                          overlay.animate().alpha(0f).setDuration(350).withEndAction(new Runnable() {
+                              public void run() { overlay.setVisibility(View.GONE); }
+                          }).start();
+                      }
+                  }, wait);
+              }
+
+              boolean handle(Uri u) {
+                  String scheme = u.getScheme();
+                  if (scheme == null) return false;
+                  if (scheme.equals("https") && HOST.equals(u.getHost())) return false;
+                  if (scheme.equals("about") || scheme.equals("data") || scheme.equals("blob")) return false;
+                  try {
+                      startActivity(new Intent(Intent.ACTION_VIEW, u));
+                  } catch (ActivityNotFoundException e) { }
+                  return true;
+              }
+
+              void showOffline() {
+                  String html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>"
+                      + "<body style='margin:0;background:#__COLOR__;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;direction:rtl'>"
+                      + "<div style='font-size:42px'>📡</div>"
+                      + "<h3>لا يوجد اتصال بالإنترنت</h3>"
+                      + "<button onclick=\"location.href='" + HOME + "'\" style='background:#fbbf24;color:#0a3622;border:0;border-radius:12px;padding:12px 28px;font-size:16px;font-weight:bold'>إعادة المحاولة</button>"
+                      + "</body></html>";
+                  web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (web.canGoBack()) web.goBack(); else super.onBackPressed();
+              }
+
+              @Override
+              protected void onSaveInstanceState(Bundle out) {
+                  super.onSaveInstanceState(out);
+                  web.saveState(out);
+              }
+          }
+          EOF
+
+          SRC=""
+          for f in admin-icon.png apple-touch-icon.png icon-512.png icon-192.png; do
+            if [ -f "$f" ]; then SRC="$f"; break; fi
+          done
+          for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            d=${pair%%:*}; sz=${pair##*:}
+            mkdir -p $R/mipmap-$d
+            if [ -n "$SRC" ]; then
+              convert "$SRC" -resize ${sz}x${sz}^ -gravity center -extent ${sz}x${sz} $R/mipmap-$d/ic_launcher.png
+            else
+              convert -size ${sz}x${sz} xc:"#$COLOR" $R/mipmap-$d/ic_launcher.png
+            fi
+          done
+
+          # استبدال القيم من config.js (آمن للأسماء التي فيها & أو | أو ')
+          cat > $RUNNER_TEMP/fix.js <<'EOT'
+          const fs = require("fs"), path = require("path"), E = process.env;
+          const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(x => x.isDirectory() ? walk(path.join(d, x.name)) : [path.join(d, x.name)]);
+          const xmlEsc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "\\'").replace(/"/g, '\\"');
+          const javaEsc = s => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+          for (const f of walk("android-admin")) {
+            if (!/\.(java|xml|gradle)$/.test(f)) continue;
+            let t = fs.readFileSync(f, "utf8");
+            const nm = f.endsWith(".java") ? javaEsc(E.APP_NAME) : f.endsWith(".xml") ? xmlEsc(E.APP_NAME) : E.APP_NAME;
+            t = t.split("__PKG__").join(E.PKG).split("__PAGES__").join(E.PAGES).split("__HOST__").join(E.HOSTN).split("__NAME__").join(nm).split("__COLOR__").join(E.COLOR);
+            fs.writeFileSync(f, t);
+          }
+          EOT
+          node $RUNNER_TEMP/fix.js
+          if grep -rEn "__(PKG|PAGES|HOST|NAME|COLOR)__" android-admin --include=*.java --include=*.xml --include=*.gradle; then
+            echo "بقي متغير غير مبدّل"; exit 1
+          fi
+
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.KS_BASE64 }}
+          KS_PASS_SECRET: ${{ secrets.KS_PASS }}
+          KS_ALIAS_SECRET: ${{ secrets.KS_ALIAS }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS_SECRET" ] || [ -z "$KS_ALIAS_SECRET" ]; then
+            echo "ناقص سر من GitHub Secrets: KS_BASE64 / KS_PASS / KS_ALIAS"
+            exit 1
+          fi
+          echo "::add-mask::$KS_PASS_SECRET"
+          echo "$KS_B64" | base64 -d > $RUNNER_TEMP/store.jks
+          echo "KS_PATH=$RUNNER_TEMP/store.jks" >> $GITHUB_ENV
+          echo "KS_PASS=$KS_PASS_SECRET" >> $GITHUB_ENV
+          echo "KS_ALIAS=$KS_ALIAS_SECRET" >> $GITHUB_ENV
+          echo "RUN_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Build APK
+        run: |
+          cd android-admin
+          gradle assembleRelease --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../AlbsamAdmin.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlbsamAdmin-APK
+          path: AlbsamAdmin.apk
+
+      - name: Publish download link
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: admin-apk
+          name: تطبيق لوحة التحكم (أندرويد)
+          body: حمّل الملف AlbsamAdmin.apk وثبّته على جوال أندرويد.
+          files: AlbsamAdmin.apk
+
+      - name: Show link
+        run: |
+          echo "رابط التحميل: https://github.com/${{ github.repository }}/releases/download/admin-apk/AlbsamAdmin.apk" >> $GITHUB_STEP_SUMMARY
