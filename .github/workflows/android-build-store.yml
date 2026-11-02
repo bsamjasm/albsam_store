@@ -1014,11 +1014,20 @@ jobs:
           cp google-services.json android-app/app/google-services.json
 
       - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.KS_BASE64 }}
+          KS_PASS_SECRET: ${{ secrets.KS_PASS }}
+          KS_ALIAS_SECRET: ${{ secrets.KS_ALIAS }}
         run: |
-          keytool -genkeypair -v -keystore $RUNNER_TEMP/store.jks -alias albsam -keyalg RSA -keysize 2048 -validity 10000 -storepass albsam2026 -keypass albsam2026 -dname "CN=Albsam Store" > /dev/null
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS_SECRET" ] || [ -z "$KS_ALIAS_SECRET" ]; then
+            echo "ناقص سر من GitHub Secrets: KS_BASE64 / KS_PASS / KS_ALIAS (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          echo "::add-mask::$KS_PASS_SECRET"
+          echo "$KS_B64" | base64 -d > $RUNNER_TEMP/store.jks
           echo "KS_PATH=$RUNNER_TEMP/store.jks" >> $GITHUB_ENV
-          echo "KS_PASS=albsam2026" >> $GITHUB_ENV
-          echo "KS_ALIAS=albsam" >> $GITHUB_ENV
+          echo "KS_PASS=$KS_PASS_SECRET" >> $GITHUB_ENV
+          echo "KS_ALIAS=$KS_ALIAS_SECRET" >> $GITHUB_ENV
           echo "RUN_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Build APK
