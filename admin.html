@@ -13,6 +13,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <script>
         tailwind.config = {
@@ -688,10 +689,40 @@
     <!-- Firebase Realtime Script -->
     <script>
         const firebaseConfig = {
+            apiKey: "AIzaSyClvOaY6x1ti_pSSi27bfTuQGuT9oaqJFs",
+            authDomain: "albsam-store.firebaseapp.com",
+            projectId: "albsam-store",
             databaseURL: "https://albsam-store-default-rtdb.firebaseio.com/"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+
+        // ===== بوابة تسجيل دخول الأدمن =====
+        (function () {
+            const ov = document.createElement('div');
+            ov.id = 'login-gate';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0a3622;display:none;align-items:center;justify-content:center;padding:16px;direction:rtl;font-family:inherit';
+            ov.innerHTML = '<form id="lg-form" style="background:#fff;border-radius:20px;padding:22px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px">'
+                + '<div style="font-weight:900;font-size:18px;color:#0a3622;text-align:center">🔐 دخول لوحة التحكم</div>'
+                + '<input id="lg-email" type="email" dir="ltr" autocomplete="username" placeholder="الإيميل" style="border:1px solid #e2e8f0;border-radius:12px;padding:10px;font-size:14px">'
+                + '<input id="lg-pass" type="password" dir="ltr" autocomplete="current-password" placeholder="كلمة السر" style="border:1px solid #e2e8f0;border-radius:12px;padding:10px;font-size:14px">'
+                + '<div id="lg-err" style="color:#dc2626;font-size:12px;min-height:16px;text-align:center"></div>'
+                + '<button type="submit" style="background:#fbbf24;color:#0a3622;font-weight:900;border:0;border-radius:12px;padding:11px;font-size:15px;cursor:pointer">دخول</button></form>';
+            document.addEventListener('DOMContentLoaded', () => document.body.appendChild(ov));
+            if (document.body) document.body.appendChild(ov);
+            firebase.auth().onAuthStateChanged(u => {
+                ov.style.display = u ? 'none' : 'flex';
+            });
+            ov.addEventListener('submit', async e => {
+                e.preventDefault();
+                const err = ov.querySelector('#lg-err'); err.textContent = '';
+                try {
+                    await firebase.auth().signInWithEmailAndPassword(ov.querySelector('#lg-email').value.trim(), ov.querySelector('#lg-pass').value);
+                    location.reload();
+                } catch (x) { err.textContent = 'الإيميل أو كلمة السر غير صحيحة'; }
+            });
+            window.adminLogout = () => firebase.auth().signOut().then(() => location.reload());
+        })();
 
         const DEFAULT_CATEGORIES = ['إلكترونيات', 'منزلية', 'اكسسوارات'];
         const GOVERNORATES = ['بغداد','نينوى','البصرة','أربيل','السليمانية','دهوك','كركوك','الأنبار','ديالى','صلاح الدين','بابل','كربلاء','النجف','واسط','ذي قار','ميسان','المثنى','القادسية'];
