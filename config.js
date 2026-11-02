@@ -8,7 +8,7 @@ window.STORE = {
   packageName: "com.albsam.store", // حزمة التطبيق (فريدة لكل عميل)
   tgWorker: "https://albsam-notify.bsamjasmdell.workers.dev", // Cloudflare Worker الخاص بالعميل
   pushWorker: "https://albsam-push.bsamjasmdell.workers.dev",// رابط Worker الإشعارات (albsam-push) — فارغ = فحص دوري
-    license: "zzwfxedz8t",
+    license: "v2dgkec743",
   licenseWorker: "https://licenses.bsamjasmdell.workers.dev",
   firebase: {
     apiKey: "AIzaSyClvOaY6x1ti_pSSi27bfTuQGuT9oaqJFs",
