@@ -1005,6 +1005,37 @@ jobs:
             fi
           done
 
+      - name: Apply store config
+        run: |
+          node -e '
+          const fs=require("fs"),path=require("path");
+          global.window={};eval(fs.readFileSync("config.js","utf8"));
+          const S=window.STORE;
+          const u=new URL(S.pagesUrl);
+          const base=S.pagesUrl.replace(/\/?$/,"/");
+          const pth=u.pathname.replace(/\/$/,"");
+          const db=new URL(S.firebase.databaseURL).host;
+          const R=[
+            ["https://bsamjasm.github.io/albsam_store/",base],
+            ["bsamjasm.github.io",u.host],
+            ["/albsam_store\"",pth+"\""],
+            ["albsam-store-default-rtdb.firebaseio.com",db],
+            ["com.albsam.store",S.packageName],
+            ["مجمع البسام",S.name],
+            ["0A3622",S.color.replace("#","").toUpperCase()],
+            ["0a3622",S.color.replace("#","").toLowerCase()]
+          ];
+          (function walk(d){for(const f of fs.readdirSync(d)){const p=path.join(d,f);
+            if(fs.statSync(p).isDirectory()){walk(p);continue}
+            if(!/\.(java|xml|gradle)$/.test(f))continue;
+            let s=fs.readFileSync(p,"utf8"),o=s;
+            for(const [a,b] of R)s=s.split(a).join(b);
+            if(s!==o)fs.writeFileSync(p,s)}})("android-app");
+          '
+          OLD=android-app/app/src/main/java/com/albsam/store
+          NEW=android-app/app/src/main/java/$(node -e 'global.window={};eval(require("fs").readFileSync("config.js","utf8"));console.log(window.STORE.packageName.replace(/\./g,"/"))')
+          if [ "$OLD" != "$NEW" ]; then mkdir -p "$NEW" && mv $OLD/* "$NEW"/; fi
+
       - name: Add Firebase config
         run: |
           if [ ! -f google-services.json ]; then
