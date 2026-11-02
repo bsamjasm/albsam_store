@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=yes">
-    <title>لوحة تحكم مجمع البسام</title>
+    <script src="config.js"></script>
+<title>لوحة تحكم مجمع البسام</title>
     <!-- تم إضافة سطر ربط ملف المانيفست هنا لتوليد الـ IPA بنجاح -->
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -688,12 +689,7 @@
 
     <!-- Firebase Realtime Script -->
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyClvOaY6x1ti_pSSi27bfTuQGuT9oaqJFs",
-            authDomain: "albsam-store.firebaseapp.com",
-            projectId: "albsam-store",
-            databaseURL: "https://albsam-store-default-rtdb.firebaseio.com/"
-        };
+        const firebaseConfig = STORE.firebase;
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
@@ -1463,8 +1459,8 @@
         }
 
         // ---------- رفع الصور إلى Supabase ----------
-        const SB_URL = 'https://oqlmptbmvqmmpwbbmohb.supabase.co';
-        const SB_KEY = 'sb_publishable_DalYbdSFkwro5UOuZhkSTw_aW8Y6bry';
+        const SB_URL = STORE.supabase.url;
+        const SB_KEY = STORE.supabase.key;
         let thumbMap = {};
         function loadImgEl(src) { return new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = src; }); }
         function imgToBlob(img, maxSize, quality) {
@@ -2048,7 +2044,7 @@
             const o = invoiceOrder;
             if (!o) return;
             const items = Array.isArray(o.items) ? o.items : [];
-            let txt = `🧾 فاتورة مجمع البسام #${o.orderNo || String(o.id).slice(-6)}\n\n`;
+            let txt = `🧾 فاتورة ${STORE.name} #${o.orderNo || String(o.id).slice(-6)}\n\n`;
             items.forEach((i, idx) => { txt += `${idx + 1}. ${i.name}${i.opts ? ' (' + i.opts + ')' : ''} × ${i.quantity} = ${formatPrice(Number(i.price) * Number(i.quantity))}\n`; });
             txt += `\nالمجموع الفرعي: ${formatPrice(o.subtotal != null ? o.subtotal : o.total)}`;
             if (Number(o.discount) > 0) txt += `\nالخصم: - ${formatPrice(o.discount)}`;
@@ -2886,7 +2882,7 @@
             'طلبك وصلنا استاذ و أنشاء الله يوصلك باقرب وقت ممكن',
             'طلبك قيد التجهيز استاذ، راح نخبرك بمجرد خروجه للتوصيل',
             'طلبك خرج للتوصيل استاذ، يرجى تجهيز المبلغ والرد على المندوب',
-            'تم تسليم طلبك استاذ، شكراً لتسوقك من مجمع البسام 🌹 نتمنى تقييمك للطلب',
+            'تم تسليم طلبك استاذ، شكراً لتسوقك من '+STORE.name+' 🌹 نتمنى تقييمك للطلب',
             'تم إلغاء طلبك استاذ، للاستفسار تواصل معنا'
         ];
         function getWaMsg(status) {
@@ -2987,7 +2983,7 @@
             const profit = deliv.reduce((t, o) => t + profitOf(o), 0);
             const pending = orders.filter(o => o.status === 'جديد' || o.status === 'قيد التجهيز').length;
             const low = products.filter(p => hasStock(p) && Number(p.stock) <= lowLimit()).length;
-            const txt = `📊 تقرير مجمع البسام – ${new Date().toLocaleDateString('en-GB')}\n\n` +
+            const txt = `📊 تقرير ${STORE.name} – ${new Date().toLocaleDateString('en-GB')}\n\n` +
                 `🛒 طلبات اليوم: ${today.length}\n💰 المبيعات: ${formatPrice(sales)}\n✅ مسلّمة اليوم: ${deliv.length}\n📈 ربح المسلّم: ${formatPrice(profit)}\n` +
                 `⏳ بانتظار المعالجة: ${pending}\n📉 مخزون منخفض: ${low} منتج`;
             const num = settings.whatsapp ? phoneForWhatsapp(settings.whatsapp) : '';
@@ -3230,7 +3226,7 @@ function xRenderStats() {
         nf.sort((a, b) => (b.p && isAvailable_(b.p) ? 1 : 0) - (a.p && isAvailable_(a.p) ? 1 : 0));
         h += `<div class="${XCARD}"><h4 class="font-bold text-xs">🔔 زبائن ينتظرون توفر منتجات</h4>${nf.map(r => {
             const name = r.p ? r.p.name : ('منتج #' + r.pid), ok = r.p && isAvailable_(r.p);
-            const msg = encodeURIComponent(`مرحباً 👋 المنتج (${name}) أصبح متوفراً الآن في مجمع البسام. اطلبه قبل نفاده!`);
+            const msg = encodeURIComponent(`مرحباً 👋 المنتج (${name}) أصبح متوفراً الآن في ${STORE.name}. اطلبه قبل نفاده!`);
             return `<div class="bg-slate-50 rounded-xl p-2.5 space-y-1.5"><div class="flex justify-between text-[11px] font-black"><span>${esc(name)}</span><span class="${ok ? 'text-emerald-600' : 'text-rose-500'}">${ok ? 'متوفر الآن ✅' : 'غير متوفر'}</span></div>${r.phones.map(ph => xNotifyRow(r.pid, ph, msg)).join('')}</div>`;
         }).join('')}</div>`;
     }
@@ -3351,7 +3347,7 @@ if (document.readyState !== 'loading') xStart(); else document.addEventListener(
 
 
 // ---------- صورة المنتج في الملصق + سطر التواصل ----------
-let xSocial = { handle: 'albsam_store', tg: true, fb: true, tt: true, ig: true };
+let xSocial = { handle: STORE.social, tg: true, fb: true, tt: true, ig: true };
 function xItemImg(i) {
     const p = (typeof products !== 'undefined' ? products : []).find(x => String(x.id) === String(i.id));
     const src = (p && ((Array.isArray(p.thumbs) && p.thumbs[0]) || (Array.isArray(p.images) && p.images[0]) || p.image)) || i.image || '';
@@ -3559,7 +3555,7 @@ async function xSaveSocial() {
     xSocial = { handle: g('soc-handle').value.trim(), tg: g('soc-tg').checked, fb: g('soc-fb').checked, tt: g('soc-tt').checked, ig: g('soc-ig').checked };
     await db.ref('settings').update({ social: xSocial }); showToast('تم حفظ حسابات التواصل');
 }
-db.ref('settings/social').on('value', sn => { const v = sn.val(); if (v) { xSocial = Object.assign({ handle: 'albsam_store', tg: true, fb: true, tt: true, ig: true }, v); if (xSocial.handle === 'البسام/*') xSocial.handle = 'albsam_store'; xFillSocial(); } });
+db.ref('settings/social').on('value', sn => { const v = sn.val(); if (v) { xSocial = Object.assign({ handle: STORE.social, tg: true, fb: true, tt: true, ig: true }, v); if (xSocial.handle === 'البسام/*') xSocial.handle = STORE.social; xFillSocial(); } });
 
 // ---------- ترتيب أقسام الإحصائيات (هيكلة نظيفة) ----------
 const X_ST_KEY = 'albsam_adm_stats2';

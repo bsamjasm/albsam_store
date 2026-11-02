@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>مجمع البسام</title>
+    <script src="config.js"></script>
+<title>مجمع البسام</title>
     <link rel="manifest" href="store.webmanifest">
     <meta name="theme-color" content="#0a3622">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -418,9 +419,7 @@
     </footer>
 
     <script>
-        const firebaseConfig = {
-            databaseURL: "https://albsam-store-default-rtdb.firebaseio.com/"
-        };
+        const firebaseConfig = STORE.firebase;
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
@@ -429,7 +428,7 @@
             ar: {
                 cart_btn: 'السلة', hero_badge: 'أهلاً بكم', hero_sub: 'كل ما تحتاجه في مكان واحد — اختر منتجاتك، وأرسل طلبك بضغطة زر.',
                 shop_now: 'تسوّق الآن', offers_badge: 'عروض محدودة', offers_title: 'العروض الحصرية',
-                offers_sub: 'تخفيضات لفترة محدودة على نخبة منتقاة من أفضل منتجات مجمع البسام.',
+                offers_sub: 'تخفيضات لفترة محدودة على نخبة منتقاة من أفضل منتجات '+STORE.name+'.',
                 best_title: 'الأكثر مبيعاً', products_title: 'منتجاتنا', all: 'الكل', favorites: 'المفضلة',
                 search_ph: 'ابحث عن منتج...', sort_newest: 'الأحدث', sort_asc: 'الأقل سعراً', sort_desc: 'الأعلى سعراً',
                 no_results: 'لا توجد منتجات مطابقة', add_cart: 'أضف للسلة', unavail: 'غير متوفر', avail: 'متوفر',
@@ -487,7 +486,7 @@
             ku: {
                 cart_btn: 'سەبەتە', hero_badge: 'بەخێربێن', hero_sub: 'هەموو شتێک لە یەک شوێن — بەرهەمەکانت هەڵبژێرە و داواکارییەکەت بنێرە.',
                 shop_now: 'ئێستا بکڕە', offers_badge: 'ئۆفەری سنووردار', offers_title: 'ئۆفەرە تایبەتەکان',
-                offers_sub: 'داشکاندنی کاتی لەسەر باشترین بەرهەمەکانی مجمع البسام.',
+                offers_sub: 'داشکاندنی کاتی لەسەر باشترین بەرهەمەکانی '+STORE.name+'.',
                 best_title: 'زۆرترین فرۆشراو', products_title: 'بەرهەمەکانمان', all: 'هەموو', favorites: 'دڵخوازەکان',
                 search_ph: 'بەدوای بەرهەمدا بگەڕێ...', sort_newest: 'نوێترین', sort_asc: 'هەرزانترین', sort_desc: 'گرانترین',
                 no_results: 'هیچ بەرهەمێک نەدۆزرایەوە', add_cart: 'زیادکردن بۆ سەبەتە', unavail: 'بەردەست نییە', avail: 'بەردەستە',
@@ -775,7 +774,7 @@
                 }
                 const at = document.getElementById('announce-text');
                 const customTxt = String(s.announceText || '').trim();
-                at.textContent = customTxt || (freeShipMin > 0 ? `🚚 توصيل مجاني للطلبات فوق ${money(freeShipMin)} — أهلاً بكم في مجمع البسام` : 'أهلاً بكم في مجمع البسام');
+                at.textContent = customTxt || (freeShipMin > 0 ? `🚚 توصيل مجاني للطلبات فوق ${money(freeShipMin)} — أهلاً بكم في ${STORE.name}` : 'أهلاً بكم في '+STORE.name+'');
                 document.getElementById('announce').classList.toggle('hidden', s.announceOn === false || s.announceOn === 'false');
             });
 
@@ -1741,7 +1740,7 @@ async function pasteTrackCode() {
             }));
         }
 
-        const TG_WORKER = "https://albsam-notify.bsamjasmdell.workers.dev";
+        const TG_WORKER = STORE.tgWorker;
 
         // ---------- صورة واحدة مدموجة لكل المنتجات المطلوبة (تُرسل مع رسالة الطلب) ----------
         function loadCollageImg(src) {
@@ -1914,7 +1913,7 @@ async function pasteTrackCode() {
             items.forEach((item, idx) => {
                 itemsText += `${idx + 1}. ${item.name}${item.opts ? ' [' + item.opts + ']' : ''} (الكمية: ${item.quantity}) - ${fmtAr(item.price * item.quantity)}\n`;
             });
-            let msg = `🛒 طلب جديد من مجمع البسام #${orderNo}${channel === 'whatsapp' ? ' (واتساب)' : ''}\n\n📦 المنتجات:\n${itemsText}\n💵 المجموع الفرعي: ${fmtAr(tt.subtotal)}`;
+            let msg = `🛒 طلب جديد من ${STORE.name} #${orderNo}${channel === 'whatsapp' ? ' (واتساب)' : ''}\n\n📦 المنتجات:\n${itemsText}\n💵 المجموع الفرعي: ${fmtAr(tt.subtotal)}`;
             if (tt.couponDiscount > 0) msg += `\n🎟️ الخصم (${appliedCoupon}): - ${fmtAr(tt.couponDiscount)}`;
             if (tt.autoDiscount > 0) msg += `\n🎁 ${tt.autoLabel}: - ${fmtAr(tt.autoDiscount)}`;
             msg += `\n🚚 التوصيل: ${tt.shipping > 0 ? fmtAr(tt.shipping) : 'مجاني'}`;
@@ -2272,7 +2271,7 @@ async function buildShareCard(p) {
     const g = c.getContext('2d'); g.direction = 'rtl'; g.textAlign = 'center';
     g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
     g.fillStyle = '#0a3621'; g.fillRect(0, 0, W, 90);
-    g.fillStyle = '#fbbf24'; g.font = 'bold 44px Cairo, sans-serif'; g.fillText('مجمع البسام', W / 2, 62);
+    g.fillStyle = '#fbbf24'; g.font = 'bold 44px Cairo, sans-serif'; g.fillText(''+STORE.name+'', W / 2, 62);
     const img = await loadImgCors(getImages(p)[0]);
     const bw = 740, bh = 600, r = Math.min(bw / img.width, bh / img.height), w = img.width * r, h = img.height * r;
     g.drawImage(img, (W - w) / 2, 110 + (bh - h) / 2, w, h);
@@ -2280,7 +2279,7 @@ async function buildShareCard(p) {
     wrapLines(g, p.name, 720, 2).forEach((l, i) => g.fillText(l, W / 2, 770 + i * 52));
     g.fillStyle = '#fbbf24'; const pw = 360; g.beginPath(); g.roundRect ? g.roundRect((W - pw) / 2, 870, pw, 70, 35) : g.rect((W - pw) / 2, 870, pw, 70); g.fill();
     g.fillStyle = '#0a3621'; g.font = 'bold 40px Cairo, sans-serif'; g.fillText(money(effPrice(p)), W / 2, 920);
-    g.fillStyle = '#64748b'; g.font = '24px Cairo, sans-serif'; g.fillText('اطلب الآن من متجر مجمع البسام', W / 2, 980);
+    g.fillStyle = '#64748b'; g.font = '24px Cairo, sans-serif'; g.fillText('اطلب الآن من متجر '+STORE.name+'', W / 2, 980);
     return await new Promise(res => c.toBlob(res, 'image/png'));
 }
 shareProduct = async function (id) {
@@ -2369,7 +2368,7 @@ function renderApkCard(s) {
     if (!c) return;
     const ua = navigator.userAgent || '';
     const on = !(s.apkOn === false || s.apkOn === 'false');
-    const url = String(s.apkUrl || '').trim() || 'https://github.com/bsamjasm/albsam_store/releases/download/store-apk/AlbsamStore.apk';
+    const url = String(s.apkUrl || '').trim() || STORE.apkUrl;
     document.getElementById('apk-link').href = url;
     c.classList.toggle('hidden', !(on && /android/i.test(ua) && !/; wv\)/.test(ua)));
 }
@@ -2377,9 +2376,9 @@ function renderApkCard(s) {
 <script>
 // ===================== ميزات تطبيق الأندرويد =====================
 function shareStore() {
-    const url = location.origin + location.pathname, text = 'تسوّق من متجر مجمع البسام';
+    const url = location.origin + location.pathname, text = 'تسوّق من متجر '+STORE.name+'';
     if (window.AlbsamApp && window.AlbsamApp.share) window.AlbsamApp.share(text + '\n' + url);
-    else if (navigator.share) navigator.share({ title: 'مجمع البسام', text, url }).catch(() => { });
+    else if (navigator.share) navigator.share({ title: ''+STORE.name+'', text, url }).catch(() => { });
     else window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank');
 }
 // مزامنة طلبات الزبون مع التطبيق (إشعارات تغيّر الحالة)
