@@ -1741,7 +1741,7 @@ async function pasteTrackCode() {
             }));
         }
 
-        const TG_TOKEN = "9166903671:AAF4hVWbwKRoOQlpf5EhxFcNw1GweL9xRZw", TG_CHAT = "1291052441";
+        const TG_WORKER = "https://albsam-notify.bsamjasmdell.workers.dev";
 
         // ---------- صورة واحدة مدموجة لكل المنتجات المطلوبة (تُرسل مع رسالة الطلب) ----------
         function loadCollageImg(src) {
@@ -1798,10 +1798,9 @@ async function pasteTrackCode() {
                 try {
                     const fits = msg.length <= 1000;
                     const fd = new FormData();
-                    fd.append('chat_id', TG_CHAT);
                     fd.append('photo', blob, 'order.jpg');
                     fd.append('caption', fits ? msg : msg.split('\n')[0]);
-                    const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                    const r = await fetch(`${TG_WORKER}/sendPhoto`, { method: 'POST', body: fd });
                     const d = await r.json();
                     if (d.ok) { if (!fits) await sendTelegram(msg); return; }
                 } catch (e) { }
@@ -1810,12 +1809,11 @@ async function pasteTrackCode() {
         }
 
         async function sendTelegramPhoto(url, caption) {
-            const botToken = TG_TOKEN, chatId = TG_CHAT;
             try {
-                const r = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                const r = await fetch(`${TG_WORKER}/sendPhoto`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, photo: url, caption })
+                    body: JSON.stringify({ photo: url, caption })
                 });
                 const d = await r.json();
                 if (!d.ok) throw new Error('photo failed');
@@ -1825,19 +1823,15 @@ async function pasteTrackCode() {
         }
 
         async function sendTelegram(msg) {
-            const botToken = TG_TOKEN, chatId = TG_CHAT;
-            const apiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+            const apiUrl = `${TG_WORKER}/sendMessage`;
 
             try {
                 await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, text: msg })
+                    body: JSON.stringify({ text: msg })
                 });
             } catch (e) {
-                const encodedMsg = encodeURIComponent(msg);
-                const fallbackUrl = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodedMsg}`;
-                new Image().src = fallbackUrl;
             }
         }
 
