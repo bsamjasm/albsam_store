@@ -1311,19 +1311,20 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <button onclick="editProduct(${product.id})" class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs cursor-pointer hover:bg-slate-200 flex-shrink-0" title="تعديل"><i class="fa-solid fa-pen"></i></button>
-                        <button onclick="duplicateProduct(${product.id})" class="w-9 h-9 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center text-xs cursor-pointer hover:bg-sky-100 flex-shrink-0" title="تكرار"><i class="fa-solid fa-copy"></i></button>
-                        <button onclick="deleteProduct(${product.id})" class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs cursor-pointer hover:bg-rose-100 flex-shrink-0" title="حذف"><i class="fa-solid fa-trash"></i></button>
-                        <button onclick="cycleBest(${product.id})" class="w-9 h-9 rounded-lg flex items-center justify-center text-xs cursor-pointer flex-shrink-0 ${bestModeOf(product) === 'pin' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'}" title="${bestModeOf(product) === 'pin' ? 'إزالة من الأكثر مبيعاً' : 'إضافة إلى الأكثر مبيعاً'}"><i class="fa-solid fa-fire"></i></button>
-                        ${(typeof xFeatSettings !== 'undefined' && (xFeatSettings.features || {}).priceStep === false) ? '' : `<div class="flex-1 min-w-[120px] h-9 rounded-lg bg-slate-100 flex items-center justify-between px-1">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex items-center gap-1.5 ${(typeof xFeatSettings !== 'undefined' && (xFeatSettings.features || {}).priceStep === false) ? 'col-span-2' : ''}">
+                        <button onclick="editProduct(${product.id})" class="flex-1 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs cursor-pointer hover:bg-slate-200" title="تعديل"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="duplicateProduct(${product.id})" class="flex-1 h-9 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center text-xs cursor-pointer hover:bg-sky-100" title="تكرار"><i class="fa-solid fa-copy"></i></button>
+                        <button onclick="deleteProduct(${product.id})" class="flex-1 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs cursor-pointer hover:bg-rose-100" title="حذف"><i class="fa-solid fa-trash"></i></button>
+                        <button onclick="cycleBest(${product.id})" class="flex-1 h-9 rounded-lg flex items-center justify-center text-xs cursor-pointer ${bestModeOf(product) === 'pin' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'}" title="${bestModeOf(product) === 'pin' ? 'إزالة من الأكثر مبيعاً' : 'إضافة إلى الأكثر مبيعاً'}"><i class="fa-solid fa-fire"></i></button>
+                        </div>
+                        ${(typeof xFeatSettings !== 'undefined' && (xFeatSettings.features || {}).priceStep === false) ? '' : `<div class="w-full h-9 rounded-lg bg-slate-100 flex items-center justify-between px-1">
                                 <button onclick="adjustPrice(${product.id}, -1)" class="w-7 h-7 rounded-md bg-white text-rose-600 text-base font-extrabold flex items-center justify-center cursor-pointer active:scale-95 shadow-sm" title="إنقاص">−</button>
                                 <span class="text-store-dark font-extrabold text-[11px]">${formatPrice(product.price)}</span>
                                 <button onclick="adjustPrice(${product.id}, 1)" class="w-7 h-7 rounded-md bg-white text-emerald-600 text-base font-extrabold flex items-center justify-center cursor-pointer active:scale-95 shadow-sm" title="زيادة">+</button>
                             </div>`}
-                        <div class="basis-full h-0"></div>
-                        <button onclick="toggleStatus(${product.id})" class="flex-1 h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center cursor-pointer ${isAvailable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}">${isAvailable ? 'متوفر' : 'غير متوفر'}</button>
-                        <button onclick="toggleOffer(${product.id})" class="flex-1 h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm transition-all ${(offerOn || expired) ? 'bg-amber-400 text-store-dark hover:bg-amber-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                                                <button onclick="toggleStatus(${product.id})" class="w-full h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center cursor-pointer ${isAvailable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}">${isAvailable ? 'متوفر' : 'غير متوفر'}</button>
+                        <button onclick="toggleOffer(${product.id})" class="w-full h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm transition-all ${(offerOn || expired) ? 'bg-amber-400 text-store-dark hover:bg-amber-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
                             <i class="fa-solid fa-bolt"></i><span>${(offerOn || expired) ? 'إلغاء العرض' : 'اجعله عرض'}</span>
                         </button>
                     </div>
