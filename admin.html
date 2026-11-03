@@ -1317,6 +1317,11 @@
                         <button onclick="deleteProduct(${product.id})" class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs cursor-pointer hover:bg-rose-100 flex-shrink-0" title="حذف"><i class="fa-solid fa-trash"></i></button>
                         <button onclick="cycleBest(${product.id})" class="w-9 h-9 rounded-lg flex items-center justify-center text-xs cursor-pointer flex-shrink-0 ${bestModeOf(product) === 'pin' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'}" title="${bestModeOf(product) === 'pin' ? 'إزالة من الأكثر مبيعاً' : 'إضافة إلى الأكثر مبيعاً'}"><i class="fa-solid fa-fire"></i></button>
                         <div class="basis-full h-0"></div>
+                        ${(typeof xFeatSettings !== 'undefined' && (xFeatSettings.features || {}).priceStep === false) ? '' : `                        <div class="basis-full flex items-center justify-between gap-2 bg-slate-50 rounded-xl px-2 py-1.5">
+                            <button onclick="adjustPrice(${product.id}, -250)" class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 text-lg font-extrabold flex items-center justify-center cursor-pointer hover:bg-rose-100 active:scale-95" title="إنقاص 250">−</button>
+                            <div class="text-center leading-tight"><div class="text-[10px] text-slate-400 font-semibold">السعر (± 250)</div><div class="text-store-dark font-extrabold text-sm">${formatPrice(product.price)}</div></div>
+                            <button onclick="adjustPrice(${product.id}, 250)" class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 text-lg font-extrabold flex items-center justify-center cursor-pointer hover:bg-emerald-100 active:scale-95" title="زيادة 250">+</button>
+                        </div>`}
                         <button onclick="toggleStatus(${product.id})" class="flex-1 h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center cursor-pointer ${isAvailable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}">${isAvailable ? 'متوفر' : 'غير متوفر'}</button>
                         <button onclick="toggleOffer(${product.id})" class="flex-1 h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm transition-all ${(offerOn || expired) ? 'bg-amber-400 text-store-dark hover:bg-amber-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
                             <i class="fa-solid fa-bolt"></i><span>${(offerOn || expired) ? 'إلغاء العرض' : 'اجعله عرض'}</span>
@@ -1326,6 +1331,18 @@
             `;
             }).join('');
             updateBulkBar();
+        }
+
+        // زيادة/إنقاص السعر بخطوة 250 دينار
+        async function adjustPrice(id, delta) {
+            const product = products.find(p => p.id === id);
+            if (!product) return;
+            const next = Math.max(0, (Number(product.price) || 0) + delta);
+            product.price = next;
+            renderAdminProducts();
+            try {
+                await db.ref('products/' + id).update({ price: next });
+            } catch (e) { showToast('تعذّر حفظ السعر'); }
         }
 
         async function toggleStatus(id) {
@@ -3455,7 +3472,7 @@ const X_FEATS = [
     ['shareStore', '📤 زر مشاركة المتجر'], ['notify', '🔔 أبلغني عند التوفر'], ['ptr', '⬇️ السحب للتحديث (التطبيق)'],
     ['pushOrders', '📦 إشعارات حالة الطلب (التطبيق)'], ['pushWaits', '🛎️ إشعار توفر المنتج (التطبيق)'], ['pushOffers', '📣 إشعارات العروض (التطبيق)'],
     ['badge', '🔢 عدّاد الطلبات الجارية (التطبيق)'], ['shareImg', '🖼️ مشاركة المنتج مع صورته (التطبيق)'], ['scan', '📷 مسح باركود المنتج (التطبيق)'],
-    ['update', '🆕 إشعار تحديث التطبيق']
+    ['update', '🆕 إشعار تحديث التطبيق'], ['priceStep', '➕➖ أزرار تعديل السعر ± 250 (في المنتجات)']
 ];
 (function () {
     const card = document.createElement('div');
@@ -3507,7 +3524,7 @@ async function xSendPush() {
     document.getElementById('push-title').value = ''; document.getElementById('push-body').value = '';
     showToast('تم إرسال الإشعار');
 }
-db.ref('settings').on('value', sn => { xFeatSettings = sn.val() || {}; xFillFeats(); });
+db.ref('settings').on('value', sn => { xFeatSettings = sn.val() || {}; xFillFeats(); if (typeof renderAdminProducts === 'function') renderAdminProducts(); });
 // ---------- الاتصال المباشر وأوقات الدوام ----------
 (function () {
     const card = document.createElement('div');
