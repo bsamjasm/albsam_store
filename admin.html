@@ -1317,17 +1317,15 @@
                         <button onclick="deleteProduct(${product.id})" class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs cursor-pointer hover:bg-rose-100 flex-shrink-0" title="حذف"><i class="fa-solid fa-trash"></i></button>
                         <button onclick="cycleBest(${product.id})" class="w-9 h-9 rounded-lg flex items-center justify-center text-xs cursor-pointer flex-shrink-0 ${bestModeOf(product) === 'pin' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'}" title="${bestModeOf(product) === 'pin' ? 'إزالة من الأكثر مبيعاً' : 'إضافة إلى الأكثر مبيعاً'}"><i class="fa-solid fa-fire"></i></button>
                         <div class="basis-full h-0"></div>
-                        <button onclick="toggleStatus(${product.id})" class="flex-1 self-stretch min-h-[2.25rem] px-2 rounded-lg text-[11px] font-bold flex items-center justify-center cursor-pointer ${isAvailable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}">${isAvailable ? 'متوفر' : 'غير متوفر'}</button>
-                        <div class="flex-1 flex flex-col gap-1.5">
-                            ${(typeof xFeatSettings !== 'undefined' && (xFeatSettings.features || {}).priceStep === false) ? '' : `<div class="w-full h-9 rounded-lg bg-slate-100 flex items-center justify-between px-1">
+                        ${(typeof xFeatSettings !== 'undefined' && (xFeatSettings.features || {}).priceStep === false) ? '' : `<div class="basis-full h-9 rounded-lg bg-slate-100 flex items-center justify-between px-1">
                                 <button onclick="adjustPrice(${product.id}, -1)" class="w-7 h-7 rounded-md bg-white text-rose-600 text-base font-extrabold flex items-center justify-center cursor-pointer active:scale-95 shadow-sm" title="إنقاص">−</button>
                                 <span class="text-store-dark font-extrabold text-[11px]">${formatPrice(product.price)}</span>
                                 <button onclick="adjustPrice(${product.id}, 1)" class="w-7 h-7 rounded-md bg-white text-emerald-600 text-base font-extrabold flex items-center justify-center cursor-pointer active:scale-95 shadow-sm" title="زيادة">+</button>
                             </div>`}
-    <button onclick="toggleOffer(${product.id})" class="w-full h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm transition-all ${(offerOn || expired) ? 'bg-amber-400 text-store-dark hover:bg-amber-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                        <button onclick="toggleStatus(${product.id})" class="flex-1 h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center cursor-pointer ${isAvailable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}">${isAvailable ? 'متوفر' : 'غير متوفر'}</button>
+                        <button onclick="toggleOffer(${product.id})" class="flex-1 h-9 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm transition-all ${(offerOn || expired) ? 'bg-amber-400 text-store-dark hover:bg-amber-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
                             <i class="fa-solid fa-bolt"></i><span>${(offerOn || expired) ? 'إلغاء العرض' : 'اجعله عرض'}</span>
                         </button>
-                        </div>
                     </div>
                 </div>
             `;
@@ -3198,6 +3196,12 @@ async function xRestore(key) {
         await db.ref('trash/' + key).remove(); showToast('تم الاسترجاع');
     } catch (e) { showToast('تعذر الاسترجاع'); }
 }
+async function xTrashClear() {
+    const n = Object.keys(xTrashMap || {}).length;
+    if (!n) { showToast('السلة فارغة'); return; }
+    if (!confirm('حذف جميع محتويات السلة نهائياً (' + n + ')؟ لا يمكن التراجع.')) return;
+    try { await db.ref('trash').remove(); showToast('تم تفريغ السلة'); } catch (e) { showToast('تعذّر التفريغ'); }
+}
 async function xTrashDel(key) { if (confirm('حذف نهائي؟')) await db.ref('trash/' + key).remove(); }
 function xPurge() { const lim = Date.now() - 30 * 86400000; Object.keys(xTrashMap).forEach(k => { if ((xTrashMap[k].deletedAt || 0) < lim) db.ref('trash/' + k).remove(); }); }
 
@@ -3274,7 +3278,7 @@ function xRenderSettings() {
     if (!xe('x-set-static')) {
         box.innerHTML = `<div id="x-set-static" class="space-y-4">
         <div class="${XCARD}"><h4 class="font-bold text-sm">🛵 مندوبو التوصيل</h4><div class="flex gap-1.5"><input id="xc-name" placeholder="اسم المندوب" class="${XIN}"><input id="xc-fee" type="number" min="0" placeholder="أجرة الطلب" class="${XIN}"><button onclick="xAddCourier()" class="${XBTN}">+</button></div><div id="xc-list" class="space-y-1"></div></div>
-        <div class="${XCARD}"><h4 class="font-bold text-sm">🗑️ سلة المحذوفات (30 يوماً)</h4><div id="xt-list" class="space-y-1"></div></div></div>`;
+        <div class="${XCARD}"><div class="flex items-center justify-between gap-2"><h4 class="font-bold text-sm">🗑️ سلة المحذوفات (30 يوماً)</h4><button onclick="xTrashClear()" class="bg-rose-600 text-white text-xs font-bold px-3 h-8 rounded-lg flex items-center gap-1 cursor-pointer active:scale-95 flex-shrink-0"><i class="fa-solid fa-trash-can"></i> حذف الكل</button></div><div id="xt-list" class="space-y-1"></div></div></div>`;
     }
     xe('xc-list').innerHTML = Object.values(xCouriers).map(c => `<div class="flex justify-between text-[11px] bg-slate-50 rounded-lg px-3 py-1.5"><span class="font-bold">${esc(c.name)} — ${formatPrice(c.fee)}</span><button onclick="xDelCourier('${c.id}')" class="text-rose-600">حذف</button></div>`).join('') || '<p class="text-[11px] text-slate-400">لا يوجد مندوبون</p>';
     const tr = Object.keys(xTrashMap).map(k => Object.assign({ key: k }, xTrashMap[k])).sort((a, b) => b.deletedAt - a.deletedAt);
