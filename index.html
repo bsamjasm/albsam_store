@@ -16,19 +16,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=block" rel="stylesheet">
-    <script>
-    // إخفاء نص شاشة الترحيب حتى يجهز خط Cairo (لا يظهر بخط مؤقت ثم يتبدل)
-    document.documentElement.classList.add('fw');
-    (function () {
-        var done = function () { document.documentElement.classList.remove('fw'); };
-        if (document.fonts && document.fonts.load) {
-            Promise.all([document.fonts.load('900 24px Cairo', 'مجمع البسام'), document.fonts.load('600 12px Cairo', 'أهلاً بكم')]).then(done, done);
-            setTimeout(done, 2500);
-        } else done();
-    })();
-    </script>
+    <link rel="preconnect" href="https://albsam-store-default-rtdb.firebaseio.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -691,6 +680,21 @@
                 const c = JSON.parse(lsGet('albsam_pcache', 'null'));
                 if (Array.isArray(c) && c.length) { products = c; renderAll(); cacheShown = true; trySplash(); }
             } catch (e) { }
+
+            // جلب فوري فائق السرعة للمنتجات عبر REST API في أجزاء من الثانية
+            if (!cacheShown && firebaseConfig && firebaseConfig.databaseURL) {
+                fetch(firebaseConfig.databaseURL.replace(/\/$/, '') + '/products.json')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!productsLoaded && data) {
+                            products = Object.values(data);
+                            productsLoaded = true;
+                            renderAll();
+                            hideSplash();
+                        }
+                    }).catch(() => {});
+            }
+            setTimeout(hideSplash, 350); // إخفاء شاشة الترحيب فوراً وعدم حبس الزبون
 
             db.ref('products').on('value', (snapshot) => {
                 const data = snapshot.val();
