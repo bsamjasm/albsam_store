@@ -1,8 +1,8 @@
-/* فحص الترخيص عن بُعد — يُحمَّل بعد config.js (STORE.license + STORE.licenseWorker) */
+/* فحص الترخيص عن بُعد بالخلفية بدون تعطيل أو تأخير فتح المتجر للزبون */
 (function () {
   var S = window.STORE || {};
-  if (!S.licenseWorker || !S.license) return; // فارغ = بدون فحص (نسختك أنت)
-  var CK = "lic_cache_" + S.license, FRESH = 6 * 36e5, RECHECK = 10 * 6e4, last = 0, locked = false;
+  if (!S.licenseWorker || !S.license) return;
+  var CK = "lic_cache_" + S.license, RECHECK = 10 * 6e4, last = 0, locked = false;
   var MSG = {
     expired: "الاشتراك منتهي",
     suspended: "الاشتراك موقوف",
@@ -10,13 +10,8 @@
   };
   function cache() { try { return JSON.parse(localStorage.getItem(CK) || "null"); } catch (e) { return null; } }
   function put(o) { try { localStorage.setItem(CK, JSON.stringify(o)); } catch (e) { } }
-  var c0 = cache();
-  var needWait = !(c0 && c0.ok && Date.now() - c0.t < FRESH && c0.exp > Date.now());
-  var st = document.createElement("style");
-  if (needWait) { st.textContent = "html{visibility:hidden}"; document.head.appendChild(st); }
-  function show() { try { st.remove(); } catch (e) { } document.documentElement.style.visibility = ""; }
   function lock(reason) {
-    if (locked) return; locked = true; show();
+    if (locked) return; locked = true;
     try { window.stop(); } catch (e) { }
     try { if (window.firebase && firebase.apps.length) firebase.database().goOffline(); } catch (e) { }
     var t = MSG[reason] || MSG.invalid;
@@ -33,17 +28,17 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         clearTimeout(to);
-        if (j && j.ok) { put({ ok: true, exp: j.exp, t: Date.now() }); show(); }
+        if (j && j.ok) { put({ ok: true, exp: j.exp, t: Date.now() }); }
         else if (j && j.reason) { put({ ok: false, t: Date.now() }); lock(j.reason); }
-        else show();
       })
       .catch(function () {
         clearTimeout(to);
-        var c = cache(); // الـ Worker ما رد: نسمح لو آخر نتيجة سليمة ولم ينتهِ تاريخها
-        if (c && c.ok && c.exp < Date.now()) lock("expired"); else show();
+        var c = cache();
+        if (c && c.ok && c.exp < Date.now()) lock("expired");
       });
   }
-  setTimeout(show, 7000); // أمان: لا تبقى الصفحة مخفية
+  var c0 = cache();
+  if (c0 && c0.ok === false) lock("invalid");
   check();
   document.addEventListener("visibilitychange", function () { if (!document.hidden && Date.now() - last > RECHECK) check(); });
   setInterval(function () { if (Date.now() - last > RECHECK) check(); }, RECHECK);
